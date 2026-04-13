@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title>MLB Score Settings</title>
+    <style>
+        :root {
+            --bg:        #1e1e1e;
+            --surface:   #2c2c2c;
+            --border:    #444;
+            --text:      #d4d4d4;
+            --accent:    #002D62; /* MLB navy */
+            --accent-hi: #C0392B; /* MLB red */
+            --radius:    6px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, sans-serif;
+            font-size: 13px;
+            padding: 12px;
+        }
+
+        h2 {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: #fff;
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 6px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 4px;
+            color: #aaa;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+
+        select {
+            width: 100%;
+            padding: 7px 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-size: 13px;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--accent-hi);
+        }
+
+        optgroup {
+            color: #888;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .info-box {
+            margin-top: 14px;
+            padding: 9px 11px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent-hi);
+            border-radius: var(--radius);
+            font-size: 11px;
+            color: #999;
+            line-height: 1.5;
+        }
+
+        .info-box strong { color: var(--text); }
+
+        .selected-team {
+            margin-top: 10px;
+            padding: 8px 10px;
+            background: var(--surface);
+            border-radius: var(--radius);
+            font-size: 12px;
+            color: #ccc;
+            display: none;
+        }
+
+        .selected-team span {
+            font-weight: bold;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+
+<h2>⚾ Live MLB Scores</h2>
+
+<label for="teamSelect">Team</label>
+<select id="teamSelect">
+    <option value="">— Select a team —</option>
+
+    <optgroup label="American League East">
+        <option value="110" data-abbr="BAL">Baltimore Orioles</option>
+        <option value="111" data-abbr="BOS">Boston Red Sox</option>
+        <option value="147" data-abbr="NYY">New York Yankees</option>
+        <option value="139" data-abbr="TB">Tampa Bay Rays</option>
+        <option value="141" data-abbr="TOR">Toronto Blue Jays</option>
+    </optgroup>
+
+    <optgroup label="American League Central">
+        <option value="145" data-abbr="CWS">Chicago White Sox</option>
+        <option value="116" data-abbr="DET">Detroit Tigers</option>
+        <option value="118" data-abbr="KC">Kansas City Royals</option>
+        <option value="142" data-abbr="MIN">Minnesota Twins</option>
+        <option value="114" data-abbr="CLE">Cleveland Guardians</option>
+    </optgroup>
+
+    <optgroup label="American League West">
+        <option value="117" data-abbr="HOU">Houston Astros</option>
+        <option value="108" data-abbr="LAA">Los Angeles Angels</option>
+        <option value="133" data-abbr="OAK">Oakland Athletics</option>
+        <option value="136" data-abbr="SEA">Seattle Mariners</option>
+        <option value="140" data-abbr="TEX">Texas Rangers</option>
+    </optgroup>
+
+    <optgroup label="National League East">
+        <option value="144" data-abbr="ATL">Atlanta Braves</option>
+        <option value="146" data-abbr="MIA">Miami Marlins</option>
+        <option value="121" data-abbr="NYM">New York Mets</option>
+        <option value="143" data-abbr="PHI">Philadelphia Phillies</option>
+        <option value="120" data-abbr="WSH">Washington Nationals</option>
+    </optgroup>
+
+    <optgroup label="National League Central">
+        <option value="112" data-abbr="CHC">Chicago Cubs</option>
+        <option value="113" data-abbr="CIN">Cincinnati Reds</option>
+        <option value="158" data-abbr="MIL">Milwaukee Brewers</option>
+        <option value="134" data-abbr="PIT">Pittsburgh Pirates</option>
+        <option value="138" data-abbr="STL">St. Louis Cardinals</option>
+    </optgroup>
+
+    <optgroup label="National League West">
+        <option value="109" data-abbr="ARI">Arizona Diamondbacks</option>
+        <option value="115" data-abbr="COL">Colorado Rockies</option>
+        <option value="119" data-abbr="LAD">Los Angeles Dodgers</option>
+        <option value="135" data-abbr="SD">San Diego Padres</option>
+        <option value="137" data-abbr="SF">San Francisco Giants</option>
+    </optgroup>
+</select>
+
+<div class="selected-team" id="selectedTeamInfo">
+    Tracking: <span id="selectedTeamName"></span>
+</div>
+
+<label for="linkType" style="margin-top:14px;">Button Press Opens</label>
+<select id="linkType">
+    <option value="gameday">MLB Gameday (free)</option>
+    <option value="tv">MLB.tv (subscription)</option>
+</select>
+
+<div class="info-box">
+    <strong>How it works:</strong><br>
+    • Scores refresh automatically every <strong>30 seconds</strong><br>
+    • Press the button anytime to refresh immediately<br>
+    • Shows score + inning (▲/▼) during live games<br>
+    • Shows start time when a game is scheduled<br>
+    • Shows W/L Final when the game is over
+</div>
+
+<script>
+    var websocket = null;
+    var uuid = null;
+    var actionContext = null;
+    var actionUUID = null;
+
+    // Called by Stream Deck when the property inspector loads
+    function connectElgatoStreamDeckSocket(port, propertyInspectorUUID, registerEvent, info, actionInfo) {
+        uuid = propertyInspectorUUID;
+
+        try {
+            var parsed = JSON.parse(actionInfo);
+            actionContext = parsed.context;
+            actionUUID    = parsed.action;
+        } catch(e) {}
+
+        websocket = new WebSocket('ws://127.0.0.1:' + port);
+
+        websocket.onopen = function() {
+            // Register the property inspector
+            websocket.send(JSON.stringify({ event: registerEvent, uuid: propertyInspectorUUID }));
+            // Request existing settings
+            websocket.send(JSON.stringify({ event: 'getSettings', context: propertyInspectorUUID }));
+        };
+
+        websocket.onmessage = function(evt) {
+            try {
+                var data = JSON.parse(evt.data);
+                if (data.event === 'didReceiveSettings') {
+                    applySettings(data.payload.settings);
+                }
+            } catch(e) {}
+        };
+    }
+
+    function applySettings(settings) {
+        if (!settings) return;
+        if (settings.teamId) {
+            var sel = document.getElementById('teamSelect');
+            sel.value = settings.teamId;
+            showSelectedTeam(sel);
+        }
+        if (settings.linkType) {
+            document.getElementById('linkType').value = settings.linkType;
+        }
+    }
+
+    function showSelectedTeam(sel) {
+        var infoEl = document.getElementById('selectedTeamInfo');
+        var nameEl = document.getElementById('selectedTeamName');
+        if (sel.value) {
+            nameEl.textContent = sel.options[sel.selectedIndex].text;
+            infoEl.style.display = 'block';
+        } else {
+            infoEl.style.display = 'none';
+        }
+    }
+
+    function saveSettings() {
+        if (!websocket) return;
+        var teamSel  = document.getElementById('teamSelect');
+        var linkSel  = document.getElementById('linkType');
+        var abbr     = teamSel.options[teamSel.selectedIndex].getAttribute('data-abbr');
+        var settings = {
+            teamId:   teamSel.value,
+            teamAbbr: abbr || '',
+            linkType: linkSel.value,
+        };
+        websocket.send(JSON.stringify({ event: 'setSettings', context: uuid, payload: settings }));
+        websocket.send(JSON.stringify({ event: 'sendToPlugin', context: uuid, action: actionUUID, payload: { event: 'settingsChanged', settings: settings } }));
+    }
+
+    document.getElementById('teamSelect').addEventListener('change', function() {
+        showSelectedTeam(this);
+        if (this.value) saveSettings();
+    });
+
+    document.getElementById('linkType').addEventListener('change', saveSettings);
+</script>
+
+<div style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #444; text-align: center; color: #666; font-size: 10px; line-height: 1.5;">
+    Created by T.J. Lauerman<br>aka ThatSportsGamer
+</div>
+
+</body>
+</html>
