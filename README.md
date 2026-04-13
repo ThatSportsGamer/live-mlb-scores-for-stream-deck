@@ -44,6 +44,8 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
    - **MLB Gameday (free)** — opens the game's live Gameday page in your browser
    - **MLB.tv (subscription)** — opens the game's MLB.tv broadcast page
 
+![Settings pane](screenshots/LiveMLBScoresSettingsPane.png)
+
 That's it. The button will load your team's game within a few seconds and refresh every 30 seconds from there.
 
 ---
