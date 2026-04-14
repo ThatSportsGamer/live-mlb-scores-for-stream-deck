@@ -268,7 +268,7 @@ async function refreshButton(context) {
     try {
         const game    = await fetchTodayGame(cfg.teamId);
         currentGame.set(context, game
-            ? { gamePk: game.gamePk, gameDate: game.gameDate, homeId: game.homeId, awayId: game.awayId }
+            ? { gamePk: game.gamePk, gameDate: game.gameDate, startISO: game.startISO, homeId: game.homeId, awayId: game.awayId }
             : null);
 
         const lines   = buildLines(game, cfg);
@@ -363,9 +363,18 @@ const teamColor = id => TEAMS[id]?.color || '#FFFFFF';
 
 function buildGameUrl(game, linkType) {
     if (!game || !game.gamePk) return 'https://www.mlb.com';
-    if (linkType === 'tv') return `https://www.mlb.com/tv/g${game.gamePk}`;
     const away = teamSlug(game.awayId) || 'away';
     const home = teamSlug(game.homeId) || 'home';
+    if (linkType === 'tv') {
+        // If the game starts more than 60 minutes from now, the stream won't be live yet.
+        // Fall back to Gameday so the user still gets something useful.
+        const startsIn = game.startISO ? (new Date(game.startISO) - Date.now()) : 0;
+        if (startsIn > 60 * 60 * 1000) {
+            log('TV requested but game is ' + Math.round(startsIn / 60000) + 'min away — falling back to Gameday');
+            return `https://www.mlb.com/gameday/${away}-vs-${home}/${game.gameDate}/${game.gamePk}/live`;
+        }
+        return `https://www.mlb.com/tv/g${game.gamePk}`;
+    }
     return `https://www.mlb.com/gameday/${away}-vs-${home}/${game.gameDate}/${game.gamePk}/live`;
 }
 
@@ -373,6 +382,8 @@ function buildGameUrl(game, linkType) {
 function fetchTodayGame(teamId) {
     return new Promise((resolve, reject) => {
         const now  = new Date();
+        // Don't roll to the next day's schedule until 2am — covers late-running games
+        if (now.getHours() < 2) now.setDate(now.getDate() - 1);
         const date = now.getFullYear() + '-' +
                      String(now.getMonth() + 1).padStart(2, '0') + '-' +
                      String(now.getDate()).padStart(2, '0');
@@ -418,22 +429,24 @@ function parseSchedule(data, teamId) {
 
         log('API:', status, matchup, 'pk=' + gamePk);
 
+        const startISO = g.gameDate || null;  // full ISO datetime, used for MLB.tv pre-game check
+
         if (status === 'Preview') {
-            return { state: 'preview', matchup, time: fmtTime(g.gameDate), gamePk, gameDate, homeId, awayId };
+            return { state: 'preview', matchup, time: fmtTime(g.gameDate), gamePk, gameDate, startISO, homeId, awayId };
         }
 
         const homeRuns = ls?.teams?.home?.runs ?? 0;
         const awayRuns = ls?.teams?.away?.runs ?? 0;
 
         if (status === 'Final') {
-            return { state: 'final', matchup, homeAbbr: homeAbr, awayAbbr: awayAbr, homeId, awayId, homeRuns, awayRuns, gamePk, gameDate };
+            return { state: 'final', matchup, homeAbbr: homeAbr, awayAbbr: awayAbr, homeId, awayId, homeRuns, awayRuns, gamePk, gameDate, startISO };
         }
 
         // Live
         const inn  = ls?.currentInning || '?';
         const half = ls?.inningHalf === 'Top' ? '\u25b2' : '\u25bc';
 
-        return { state: 'live', matchup, homeAbbr: homeAbr, awayAbbr: awayAbr, homeId, awayId, homeRuns, awayRuns, inn, half, gamePk, gameDate };
+        return { state: 'live', matchup, homeAbbr: homeAbr, awayAbbr: awayAbr, homeId, awayId, homeRuns, awayRuns, inn, half, gamePk, gameDate, startISO };
 
     } catch (e) {
         log('parseSchedule error:', e.message);
