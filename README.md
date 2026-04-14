@@ -4,7 +4,7 @@
 
 A Stream Deck plugin that shows live MLB scores directly on your buttons. Each button tracks one team and updates automatically every 30 seconds.
 
-![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.0-green)
+![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.1-green)
 
 ---
 
@@ -19,6 +19,15 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 - **Multi-button support** — add as many team buttons as you want, each refreshes independently
 
 ---
+
+## Recent Updates
+
+**v1.0.1**
+- Schedule holds on the current day's games until 2am local time, so late-running games stay on the button until they finish
+- Pressing a button set to MLB.tv now opens Gameday instead if the game is more than an hour from first pitch
+
+---
+
 
 ## Requirements
 
