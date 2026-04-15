@@ -22,6 +22,9 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 
 ## Recent Updates
 
+**v1.0.2**
+- Added custom icons
+
 **v1.0.1**
 - Schedule holds on the current day's games until 2am local time, so late-running games stay on the button until they finish
 - Pressing a button set to MLB.tv now opens Gameday instead if the game is more than an hour from first pitch
@@ -60,6 +63,8 @@ That's it. The button will load your team's game within a few seconds and refres
 ---
 
 ## What the Button Shows
+
+![Live score button](screenshots/LiveMLBScoresPluginScreenshot.png)
 
 **Before the game:**
 ```
