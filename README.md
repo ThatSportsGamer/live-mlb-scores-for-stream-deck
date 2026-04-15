@@ -61,6 +61,8 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 
 That's it. The button will load your team's game within a few seconds and refresh every 30 seconds from there.
 
+> **Note:** If MLB.tv is selected but the game hasn't started yet (and is more than 60 minutes away), pressing the button will open Gameday instead.
+
 ---
 
 ## What the Button Shows
@@ -120,6 +122,8 @@ All 30 MLB teams are supported:
 ## How It Works
 
 The plugin polls [MLB's free public Stats API](https://statsapi.mlb.com) once every 30 seconds per button. No API key or account is required. The plugin is fully self-contained — it uses only Node.js built-in modules and requires no external dependencies.
+
+The schedule holds on the current day's games until 2 AM local time, so late-running games stay on the button until they finish.
 
 ---
 
