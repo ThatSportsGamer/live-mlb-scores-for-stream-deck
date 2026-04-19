@@ -5,7 +5,7 @@
 
 A Stream Deck plugin that shows live MLB scores directly on your buttons. Each button tracks one team and updates automatically every 30 seconds.
 
-![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.3-green)
+![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.4-green)
 
 ---
 
@@ -23,8 +23,14 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 
 ## Recent Updates
 
+**v1.0.4**
+- PPD and SUSP now display in red — signals the game won't happen today
+- Pre-game rain delay displays DELAY in blue
+- Mid-game rain delay keeps the current score visible with DELAY in blue where the inning indicator normally sits
+
 **v1.0.3**
 - Inning indicator and "Final" label now display in yellow
+- End-of-game fireworks animation with the winning team's name and colors
 
 **v1.0.2**
 - Added custom icons
