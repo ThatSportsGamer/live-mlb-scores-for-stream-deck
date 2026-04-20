@@ -3,6 +3,7 @@
     "CodePath": "plugin.js",
     "Description": "Shows live MLB scores on your Stream Deck. Each button tracks one team — see the current score, inning, and game status at a glance.",
     "Name": "Live MLB Scores",
+    "URL": "https://github.com/ThatSportsGamer/live-mlb-scores-for-stream-deck",
     "Icon": "imgs/plugin-icon",
     "Version": "1.0.4",
     "SDKVersion": 2,
