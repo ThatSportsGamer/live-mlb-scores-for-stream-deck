@@ -78,7 +78,7 @@ That's it. The button will load your team's game within a few seconds and refres
 
 ## What the Button Shows
 
-![Live score button](screenshots/LiveMLBScoresPluginScreenshot.png)
+![Live score button](screenshots/LiveMLBScoresButtonStates.png)
 
 **Before the game:**
 ```
