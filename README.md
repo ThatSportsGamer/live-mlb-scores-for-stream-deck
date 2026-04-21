@@ -1,6 +1,6 @@
 # Live MLB Scores — Stream Deck Plugin
 
-<img src="screenshots/LIVE_MLB_SCORES.png" width=250 height=250>
+<img src="screenshots/LiveMLBScoresThumbnail.png" width=960 height=480>
 
 
 A Stream Deck plugin that shows live MLB scores directly on your buttons. Each button tracks one team and updates automatically every 30 seconds.
