@@ -1,0 +1,40 @@
+{
+    "Author": "T.J. Lauerman aka ThatSportsGamer",
+    "CodePath": "plugin.js",
+    "Description": "Shows live MLB scores on your Stream Deck. Each button tracks one team — see the current score, inning, and game status at a glance.",
+    "Name": "Live MLB Scores",
+    "UUID": "com.tj.livemlbscores",
+    "Category": "Live Sports Scores",
+    "URL": "https://github.com/ThatSportsGamer/live-mlb-scores-for-stream-deck",
+    "Icon": "imgs/plugin-icon",
+    "CategoryIcon": "imgs/category-icon",
+    "Version": "1.0.7.0",
+    "SDKVersion": 3,
+    "Software": {
+        "MinimumVersion": "6.9"
+    },
+    "OS": [
+        { "Platform": "mac", "MinimumVersion": "10.15" },
+        { "Platform": "windows", "MinimumVersion": "10" }
+    ],
+    "Nodejs": {
+        "Version": "20",
+        "Debug": "enabled"
+    },
+    "Actions": [
+        {
+            "Name": "Live MLB Scores",
+            "UUID": "com.tj.livemlbscores.score",
+            "Icon": "imgs/action-icon",
+            "Tooltip": "Shows live score for your chosen MLB team. Updates every 30 seconds.",
+            "PropertyInspectorPath": "property-inspector.html",
+            "States": [
+                {
+                    "Image": "imgs/action-icon",
+                    "Title": ""
+                }
+            ],
+            "SupportedInMultiActions": false
+        }
+    ]
+}
