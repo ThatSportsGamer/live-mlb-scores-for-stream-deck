@@ -5,7 +5,7 @@
 
 A Stream Deck plugin that shows live MLB scores directly on your buttons. Each button tracks one team and updates automatically every 30 seconds.
 
-![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.7-green)
+![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.9-green)
 
 ---
 
@@ -15,14 +15,25 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 - **Pre-game** — shows the matchup (e.g. `ATL @ NYM`) and scheduled start time
 - **Final scores** — shows the final score with a "Final" label
 - **Score-change flash** — when a team scores, the button flashes in that team's primary color
-- **Browser shortcut** — press any button to open that game in MLB Gameday or MLB.tv
+- **Browser shortcut** — press any button to open that game in MLB Gameday or MLB.tv; switches to Gameday automatically 30 minutes after the final out
 - **Doubleheader support** — automatically shows Game 1, then switches to Game 2 when it ends; G1/G2 label keeps you oriented
+- **Doubleheader toggle** — double-click a doubleheader button to peek at the other game; auto-reverts after 15 seconds
 - **No-flicker updates** — buttons only redraw when the display actually changes
 - **Multi-button support** — add as many team buttons as you want, each refreshes independently
 
 ---
 
 ## Recent Updates
+
+**v1.0.9.0**
+- After a game ends, pressing a button set to MLB.tv now opens Gameday instead — the MLB.tv link stays active for 30 minutes post-game to cover any post-game coverage, then switches automatically
+- If the plugin loads and the game is already final, pressing the button goes straight to Gameday
+
+**v1.0.8.0**
+- Double-click a doubleheader button to peek at the other game — when Game 1 is active, see Game 2's start time; when Game 2 is active, see Game 1's final score
+- Double-click again to snap back to the active game, or wait 15 seconds to auto-revert
+- Single-clicking while viewing the other game opens that game's Gameday page
+- Score changes and end-of-game fireworks always return the button to the active game view
 
 **v1.0.7.0**
 - Doubleheader support: automatically shows Game 1 until it ends, then switches to Game 2
@@ -85,7 +96,7 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 
 That's it. The button will load your team's game within a few seconds and refresh every 30 seconds from there.
 
-> **Note:** If MLB.tv is selected but the game hasn't started yet (and is more than 60 minutes away), pressing the button will open Gameday instead.
+> **Note:** If MLB.tv is selected but the game hasn't started yet (more than 60 minutes away), pressing the button will open Gameday instead. After the final out, the button continues opening MLB.tv for 30 minutes to cover post-game coverage, then automatically switches to Gameday.
 
 ---
 
