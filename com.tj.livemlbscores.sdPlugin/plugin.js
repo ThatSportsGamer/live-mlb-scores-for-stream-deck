@@ -515,6 +515,9 @@ const TEAMS = {
     146: { abbr: 'MIA', slug: 'marlins',    color: '#00A3E0', name: 'Marlins'      },
     147: { abbr: 'NYY', slug: 'yankees',    color: '#C4CED4', name: 'Yankees'      },
     158: { abbr: 'MIL', slug: 'brewers',    color: '#FFC52F', name: 'Brewers'      },
+    // All-Star Game "teams" — used when a club has no game during the All-Star break
+    159: { abbr: 'AL',  slug: 'al-all-stars', color: '#D50032', name: 'AL All-Stars' },
+    160: { abbr: 'NL',  slug: 'nl-all-stars', color: '#0057B8', name: 'NL All-Stars' },
 };
 
 const teamAbbr  = id => TEAMS[id]?.abbr  || 'MLB';
@@ -526,7 +529,8 @@ function buildGameUrl(game, linkType) {
     if (!game || !game.gamePk) return 'https://www.mlb.com';
     const away = teamSlug(game.awayId) || 'away';
     const home = teamSlug(game.homeId) || 'home';
-    if (linkType === 'tv') {
+    const isAllStarGame = game.awayId === 159 || game.homeId === 160;
+    if (linkType === 'tv' && !isAllStarGame) {
         // If the game starts more than 60 minutes from now, the stream won't be live yet.
         // Fall back to Gameday so the user still gets something useful.
         const startsIn = game.startISO ? (new Date(game.startISO) - Date.now()) : 0;
@@ -550,6 +554,31 @@ function fetchTodayGame(teamId) {
                      String(now.getDate()).padStart(2, '0');
         const url  = 'https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=' + date +
                      '&teamId=' + teamId + '&hydrate=linescore';
+
+        const req = https.get(url, { headers: { 'User-Agent': 'StreamDeckMLBScores/1.0' } }, res => {
+            let body = '';
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+                try {
+                    const game = parseSchedule(JSON.parse(body));
+                    if (game) return resolve(game);
+                    // No game for this team today — on the All-Star break itself, show the All-Star Game instead
+                    fetchAllStarGame(date).then(resolve).catch(() => resolve(null));
+                }
+                catch (e) { reject(e); }
+            });
+        });
+
+        req.on('error', reject);
+        req.setTimeout(10_000, () => { req.destroy(); reject(new Error('Request timed out')); });
+    });
+}
+
+// All-Star Game uses gameType 'A' and team IDs 159 (AL) / 160 (NL) — same JSON shape as a
+// regular game, so parseSchedule() handles it as-is. Returns null on every non-ASG day.
+function fetchAllStarGame(date) {
+    return new Promise((resolve, reject) => {
+        const url = 'https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=' + date + '&gameType=A&hydrate=linescore';
 
         const req = https.get(url, { headers: { 'User-Agent': 'StreamDeckMLBScores/1.0' } }, res => {
             let body = '';
