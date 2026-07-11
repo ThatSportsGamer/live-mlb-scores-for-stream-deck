@@ -5,7 +5,7 @@
 
 A Stream Deck plugin that shows live MLB scores directly on your buttons. Each button tracks one team and updates automatically every 30 seconds.
 
-![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.13-green)
+![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.14-green)
 
 ---
 
@@ -25,6 +25,9 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 ---
 
 ## Recent Updates
+
+**v1.0.14.0**
+- Fixed: button no longer switches to "Top 1" during pre-game warmups before first pitch — the matchup and start time stay visible until the game actually begins
 
 **v1.0.13.0**
 - During the All-Star break, a team button with no game now shows the All-Star Game instead of "No Game" — AL vs. NL score, inning, and out indicators, just like a regular game, with AL shown in red and NL in blue
