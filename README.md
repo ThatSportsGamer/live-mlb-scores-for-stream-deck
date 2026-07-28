@@ -5,7 +5,7 @@
 
 A Stream Deck plugin that shows live MLB scores directly on your buttons. Each button tracks one team and updates automatically every 30 seconds.
 
-![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.16-green)
+![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.21-green)
 
 ---
 
@@ -21,10 +21,27 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 - **No-flicker updates** — buttons only redraw when the display actually changes
 - **Multi-button support** — add as many team buttons as you want, each refreshes independently
 - **All-Star Game coverage** — when your team has no game during the All-Star break, the button automatically shows the All-Star Game itself (AL in red, NL in blue) until it's over
+- **Next game on off days** — instead of a dead-end "No Game", the button shows your team's next scheduled matchup, date, and time
 
 ---
 
 ## Recent Updates
+
+**v1.0.21.0**
+- Fixed: Gameday links now use the correct calendar date for evening games — West Coast/Mountain teams whose game time crosses into the next UTC day (e.g. a 7:10pm Denver first pitch) were getting a link one day ahead of the real game
+
+**v1.0.20.0**
+- Fixed: Gameday links now use the correct URL suffix for the game's actual state — pressing a button for a preview, delayed, postponed, or "Next Game" matchup no longer sends you to a blank `/live` page
+
+**v1.0.19.0**
+- Trimmed the "Next Game" date to just month/day (e.g. `7/25`) instead of including the day of the week — the line was running out of room on the button
+
+**v1.0.18.0**
+- Fixed: the All-Star Game could return a broken MLB.tv link on years an AL park hosts it — Gameday fallback now correctly detects the game regardless of which league is home or away
+- Fixed: postponed, suspended, and pre-game delayed games now carry full team info so the Gameday link opens the correct game instead of a generic fallback URL
+
+**v1.0.17.0**
+- On off days, the button now shows your team's next scheduled game (matchup, date, and time) instead of a dead-end "No Game"
 
 **v1.0.16.0**
 - Fixed: the inning/out indicator row now stays centered when a G1 or G2 label is shown during doubleheaders
@@ -142,8 +159,9 @@ Final
 
 **Off day:**
 ```
-  ATL
-No Game
+Next Game
+ATL @ NYM
+7/25 7:10 PM
 ```
 
 ---
