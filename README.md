@@ -5,7 +5,7 @@
 
 A Stream Deck plugin that shows live MLB scores directly on your buttons. Each button tracks one team and updates automatically every 30 seconds.
 
-![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.21-green)
+![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.23-green)
 
 ---
 
@@ -26,6 +26,12 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 ---
 
 ## Recent Updates
+
+**v1.0.23.0**
+- Fixed: a pre-game weather delay (e.g. "Delayed Start") could be misread as a mid-game delay because MLB's linescore data pre-populates a "Top 1" shell before first pitch — this in turn caused the previous fix's MLB.tv fallback check to think the game had started and open the stream early. Now checks the game's actual live/preview status instead
+
+**v1.0.22.0**
+- Fixed: pressing a button set to MLB.tv for a game delayed past its scheduled start time no longer opens the stream early — the plugin now checks the game's actual status instead of the clock, so a rain delay correctly falls back to Gameday until the game actually begins
 
 **v1.0.21.0**
 - Fixed: Gameday links now use the correct calendar date for evening games — West Coast/Mountain teams whose game time crosses into the next UTC day (e.g. a 7:10pm Denver first pitch) were getting a link one day ahead of the real game
