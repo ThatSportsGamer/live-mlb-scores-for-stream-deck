@@ -1,7 +1,6 @@
 # Live MLB Scores — Stream Deck Plugin
 
-<img src="screenshots/LiveMLBScoresThumbnail.png" width=960 height=480>
-
+![Live MLB Scores in action](screenshots/LiveMLBScoresThumbnail.png)
 
 A Stream Deck plugin that shows live MLB scores directly on your buttons. Each button tracks one team and updates automatically every 30 seconds.
 
@@ -111,7 +110,8 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 
 - [Elgato Stream Deck](https://www.elgato.com/stream-deck) hardware
 - [Stream Deck software](https://www.elgato.com/downloads) version 6.0 or later (Mac or Windows)
-- No MLB account required for scores — the plugin uses MLB's free public stats API
+- No account required to view scores — the plugin uses MLB's free public stats API
+- An MLB.tv subscription is required only if you choose the MLB.tv link option; Gameday is free
 
 ---
 
@@ -169,28 +169,6 @@ Next Game
 ATL @ NYM
 7/25 7:10 PM
 ```
-
----
-
-## Supported Teams
-
-All 30 MLB teams are supported:
-
-| AL East | AL Central | AL West |
-|---|---|---|
-| Baltimore Orioles | Chicago White Sox | Houston Astros |
-| Boston Red Sox | Cleveland Guardians | Los Angeles Angels |
-| New York Yankees | Detroit Tigers | Oakland Athletics |
-| Tampa Bay Rays | Kansas City Royals | Seattle Mariners |
-| Toronto Blue Jays | Minnesota Twins | Texas Rangers |
-
-| NL East | NL Central | NL West |
-|---|---|---|
-| Atlanta Braves | Chicago Cubs | Arizona Diamondbacks |
-| Miami Marlins | Cincinnati Reds | Colorado Rockies |
-| New York Mets | Milwaukee Brewers | Los Angeles Dodgers |
-| Philadelphia Phillies | Pittsburgh Pirates | San Diego Padres |
-| Washington Nationals | St. Louis Cardinals | San Francisco Giants |
 
 ---
 
