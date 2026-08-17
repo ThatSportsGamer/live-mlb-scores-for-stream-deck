@@ -70,6 +70,69 @@
             text-transform: uppercase;
         }
 
+        .field { margin-bottom: 10px; }
+
+        /* ── Search ── */
+        .search-wrap { position: relative; }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 7px 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-size: 13px;
+        }
+
+        input[type="text"]::placeholder { color: #666; }
+        input[type="text"]:focus { outline: none; border-color: var(--accent-hi); }
+
+        .autocomplete-list {
+            position: absolute;
+            top: 100%;
+            left: 0; right: 0;
+            background: var(--surface);
+            border: 1px solid var(--accent-hi);
+            border-top: none;
+            border-radius: 0 0 var(--radius) var(--radius);
+            max-height: 180px;
+            overflow-y: auto;
+            z-index: 10;
+            display: none;
+        }
+
+        .autocomplete-list .ac-item {
+            padding: 7px 10px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text);
+            border-bottom: 1px solid #333;
+        }
+
+        .autocomplete-list .ac-item:last-child { border-bottom: none; }
+        .autocomplete-list .ac-item:hover,
+        .autocomplete-list .ac-item.active { background: var(--accent); color: #fff; }
+
+        /* ── Divider ── */
+        .or-divider {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 12px 0;
+            color: #555;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+        .or-divider::before,
+        .or-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
         .info-box {
             margin-top: 14px;
             padding: 9px 11px;
@@ -98,11 +161,84 @@
             font-weight: bold;
             color: #fff;
         }
+
+        /* ── Background color ── */
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .checkbox-row input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            accent-color: var(--accent-hi);
+            cursor: pointer;
+        }
+
+        .checkbox-row label {
+            margin: 0;
+            text-transform: none;
+            letter-spacing: normal;
+            font-size: 12px;
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .bg-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .bg-controls.disabled { opacity: .4; pointer-events: none; }
+
+        input[type="color"] {
+            width: 34px;
+            height: 28px;
+            padding: 0;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--surface);
+            cursor: pointer;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            accent-color: var(--accent-hi);
+            cursor: pointer;
+        }
+
+        .opacity-value {
+            width: 34px;
+            text-align: right;
+            font-size: 11px;
+            color: #aaa;
+        }
+
+        .bg-hint {
+            margin-top: 6px;
+            font-size: 10.5px;
+            color: #777;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
 
 <h2>⚾ Live MLB Scores</h2>
+
+<div class="field">
+    <label for="searchBox">Search</label>
+    <div class="search-wrap">
+        <input type="text" id="searchBox" placeholder="e.g. Braves, Atlanta, ATL…" autocomplete="off"/>
+        <div class="autocomplete-list" id="autocompleteList"></div>
+    </div>
+</div>
+
+<div class="or-divider">or browse</div>
 
 <label for="teamSelect">Team</label>
 <select id="teamSelect">
@@ -167,6 +303,20 @@
     <option value="tv">MLB.tv (subscription)</option>
 </select>
 
+<div style="margin-top: 16px;">
+    <label>Key Background</label>
+    <div class="checkbox-row">
+        <input type="checkbox" id="bgEnabled"/>
+        <label for="bgEnabled">Use a custom background color</label>
+    </div>
+    <div class="bg-controls disabled" id="bgControls">
+        <input type="color" id="bgColorInput" value="#000000"/>
+        <input type="range" id="bgOpacityInput" min="10" max="100" value="100"/>
+        <span class="opacity-value" id="bgOpacityValue">100%</span>
+    </div>
+    <div class="bg-hint">Score and status text is white (or your team's color) — lighter or brighter backgrounds can make it harder to read.</div>
+</div>
+
 <div class="info-box">
     <strong>How it works:</strong><br>
     • Scores refresh automatically every <strong>30 seconds</strong><br>
@@ -181,6 +331,13 @@
     var uuid = null;
     var actionContext = null;
     var actionUUID = null;
+
+    // Built from the <option> elements already in the Team dropdown, rather than
+    // duplicating the list in a separate JS array — one source of truth, no risk
+    // of the search results and the dropdown drifting apart.
+    var TEAMS = Array.prototype.slice.call(document.querySelectorAll('#teamSelect option[value]'))
+        .filter(function(o) { return o.value; })
+        .map(function(o) { return { value: o.value, abbr: o.getAttribute('data-abbr') || '', name: o.textContent }; });
 
     // Called by Stream Deck when the property inspector loads
     function connectElgatoStreamDeckSocket(port, propertyInspectorUUID, registerEvent, info, actionInfo) {
@@ -211,16 +368,112 @@
         };
     }
 
+    // ── Autocomplete ──────────────────────────────────────────────────────────
+    var acList      = document.getElementById('autocompleteList');
+    var searchBox   = document.getElementById('searchBox');
+    var activeIndex = -1;
+
+    function showAutocomplete() {
+        var query = searchBox.value.toLowerCase().trim();
+        acList.innerHTML = '';
+        activeIndex = -1;
+
+        if (!query) { acList.style.display = 'none'; return; }
+
+        var matches = TEAMS.filter(function(t) {
+            return t.name.toLowerCase().indexOf(query) !== -1 || t.abbr.toLowerCase().indexOf(query) !== -1;
+        });
+
+        if (!matches.length) { acList.style.display = 'none'; return; }
+
+        matches.forEach(function(t) {
+            var div = document.createElement('div');
+            div.className = 'ac-item';
+            div.textContent = t.name;
+            div.setAttribute('data-value', t.value);
+            div.setAttribute('data-abbr', t.abbr);
+            div.setAttribute('data-name', t.name);
+            div.addEventListener('mousedown', function(e) {
+                e.preventDefault(); // keep focus off blur
+                selectTeamFromSearch(t.value, t.abbr, t.name);
+            });
+            acList.appendChild(div);
+        });
+
+        acList.style.display = 'block';
+    }
+
+    function hideAutocomplete() {
+        acList.style.display = 'none';
+        activeIndex = -1;
+    }
+
+    function navigateAutocomplete(dir) {
+        var items = acList.querySelectorAll('.ac-item');
+        if (!items.length) return;
+        items[activeIndex] && items[activeIndex].classList.remove('active');
+        activeIndex = (activeIndex + dir + items.length) % items.length;
+        items[activeIndex].classList.add('active');
+        items[activeIndex].scrollIntoView({ block: 'nearest' });
+    }
+
+    searchBox.addEventListener('input', showAutocomplete);
+
+    searchBox.addEventListener('keydown', function(e) {
+        if (acList.style.display === 'none') return;
+        if (e.key === 'ArrowDown')  { e.preventDefault(); navigateAutocomplete(1); }
+        if (e.key === 'ArrowUp')    { e.preventDefault(); navigateAutocomplete(-1); }
+        if (e.key === 'Enter') {
+            var active = acList.querySelector('.ac-item.active');
+            if (active) {
+                e.preventDefault();
+                selectTeamFromSearch(active.getAttribute('data-value'), active.getAttribute('data-abbr'), active.getAttribute('data-name'));
+            }
+        }
+        if (e.key === 'Escape') hideAutocomplete();
+    });
+
+    searchBox.addEventListener('blur', function() {
+        setTimeout(hideAutocomplete, 150);
+    });
+
+    // Picking a team via search just drives the existing dropdown + saveSettings
+    // path, so both selection methods stay in sync and settings are only ever
+    // written from one place.
+    function selectTeamFromSearch(value, abbr, name) {
+        searchBox.value = name;
+        hideAutocomplete();
+
+        var teamSel = document.getElementById('teamSelect');
+        teamSel.value = value;
+        showSelectedTeam(teamSel);
+        saveSettings();
+    }
+
     function applySettings(settings) {
         if (!settings) return;
         if (settings.teamId) {
             var sel = document.getElementById('teamSelect');
             sel.value = settings.teamId;
             showSelectedTeam(sel);
+            if (sel.value) searchBox.value = sel.options[sel.selectedIndex].text;
         }
         if (settings.linkType) {
             document.getElementById('linkType').value = settings.linkType;
         }
+
+        var bgEnabled  = document.getElementById('bgEnabled');
+        var bgControls = document.getElementById('bgControls');
+        var bgColor    = document.getElementById('bgColorInput');
+        var bgOpacity  = document.getElementById('bgOpacityInput');
+        var bgOpacityLabel = document.getElementById('bgOpacityValue');
+        var opacityVal = settings.bgOpacity != null ? settings.bgOpacity : 100;
+
+        bgEnabled.checked = !!settings.bgColor;
+        bgColor.value     = settings.bgColor || '#000000';
+        bgOpacity.value   = opacityVal;
+        bgOpacityLabel.textContent = opacityVal + '%';
+        bgControls.classList.toggle('disabled', !bgEnabled.checked);
     }
 
     function showSelectedTeam(sel) {
@@ -236,13 +489,18 @@
 
     function saveSettings() {
         if (!websocket) return;
-        var teamSel  = document.getElementById('teamSelect');
-        var linkSel  = document.getElementById('linkType');
-        var abbr     = teamSel.options[teamSel.selectedIndex].getAttribute('data-abbr');
+        var teamSel     = document.getElementById('teamSelect');
+        var linkSel     = document.getElementById('linkType');
+        var abbr        = teamSel.options[teamSel.selectedIndex].getAttribute('data-abbr');
+        var bgEnabledEl = document.getElementById('bgEnabled');
+        var bgColorEl   = document.getElementById('bgColorInput');
+        var bgOpacityEl = document.getElementById('bgOpacityInput');
         var settings = {
-            teamId:   teamSel.value,
-            teamAbbr: abbr || '',
-            linkType: linkSel.value,
+            teamId:    teamSel.value,
+            teamAbbr:  abbr || '',
+            linkType:  linkSel.value,
+            bgColor:   bgEnabledEl.checked ? bgColorEl.value : null,
+            bgOpacity: parseInt(bgOpacityEl.value, 10),
         };
         websocket.send(JSON.stringify({ event: 'setSettings', context: uuid, payload: settings }));
         websocket.send(JSON.stringify({ event: 'sendToPlugin', context: uuid, action: actionUUID, payload: { event: 'settingsChanged', settings: settings } }));
@@ -250,10 +508,33 @@
 
     document.getElementById('teamSelect').addEventListener('change', function() {
         showSelectedTeam(this);
+        searchBox.value = this.value ? this.options[this.selectedIndex].text : '';
         if (this.value) saveSettings();
     });
 
     document.getElementById('linkType').addEventListener('change', saveSettings);
+
+    // ── Background color controls ─────────────────────────────────────────────
+    var bgEnabledEl      = document.getElementById('bgEnabled');
+    var bgControlsEl     = document.getElementById('bgControls');
+    var bgColorInputEl   = document.getElementById('bgColorInput');
+    var bgOpacityInputEl = document.getElementById('bgOpacityInput');
+    var bgOpacityValueEl = document.getElementById('bgOpacityValue');
+
+    bgEnabledEl.addEventListener('change', function() {
+        bgControlsEl.classList.toggle('disabled', !bgEnabledEl.checked);
+        saveSettings();
+    });
+
+    bgColorInputEl.addEventListener('input', function() {
+        if (!bgEnabledEl.checked) return;
+        saveSettings();
+    });
+
+    bgOpacityInputEl.addEventListener('input', function() {
+        bgOpacityValueEl.textContent = bgOpacityInputEl.value + '%';
+        if (bgEnabledEl.checked) saveSettings();
+    });
 </script>
 
 <div style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #444; text-align: center; color: #666; font-size: 10px; line-height: 1.5;">

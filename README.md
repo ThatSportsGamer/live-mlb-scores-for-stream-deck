@@ -4,7 +4,7 @@
 
 A Stream Deck plugin that shows live MLB scores directly on your buttons. Each button tracks one team and updates automatically every 30 seconds.
 
-![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.25-green)
+![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.27-green)
 
 ---
 
@@ -21,10 +21,21 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 - **Multi-button support** — add as many team buttons as you want, each refreshes independently
 - **All-Star Game coverage** — when your team has no game during the All-Star break, the button automatically shows the All-Star Game itself (AL in red, NL in blue) until it's over
 - **Next game on off days** — instead of a dead-end "No Game", the button shows your team's next scheduled matchup, date, and time
+- **Custom key background color** — pick your own background color and opacity instead of the default black
+- **Search** — type a team, city, or abbreviation to jump straight to it instead of scrolling the dropdown
+
+![Custom key background colors](screenshots/LiveMLBScoresCustomBackgroundColors.png)
+*The Braves (left, Live MLB Scores) alongside four of their affiliates (Live MiLB Scores), each with its own custom key background color.*
 
 ---
 
 ## Recent Updates
+
+**v1.0.27.0**
+- Added a search box to the settings panel (matching Live CFB Scores and Live MiLB Scores) — type a team, city, or abbreviation for autocomplete instead of scrolling the Team dropdown. Picking a result still syncs the dropdown underneath, so both paths stay in sync
+
+**v1.0.26.0**
+- Added a custom key background color option (matching Live NFL Scores and Live CFB Scores) — pick a color and opacity in the settings panel instead of the default black
 
 **v1.0.25.0**
 - Fixed: pressing a button set to MLB.tv during the Warmup state (right before first pitch, including right after a rain delay clears) fell back to Gameday instead of opening the stream — MLB.tv already carries Warmup as pre-game coverage, so it now opens directly
