@@ -301,7 +301,14 @@
 <select id="linkType">
     <option value="gameday">MLB Gameday (free)</option>
     <option value="tv">MLB.tv (subscription)</option>
+    <option value="custom">Custom Link</option>
 </select>
+
+<div class="field" id="customUrlField" style="margin-top:8px; display:none;">
+    <label for="customUrlInput">Custom URL</label>
+    <input type="text" id="customUrlInput" placeholder="e.g. https://www.foxsports.com/live/your-rsn"/>
+    <div class="bg-hint">Opens MLB Gameday until the game actually starts, then this URL instead — handy for a regional sports network's live-game page or any other link you'd rather use.</div>
+</div>
 
 <div style="margin-top: 16px;">
     <label>Key Background</label>
@@ -461,6 +468,8 @@
         if (settings.linkType) {
             document.getElementById('linkType').value = settings.linkType;
         }
+        document.getElementById('customUrlInput').value = settings.customUrl || '';
+        toggleCustomUrlField();
 
         var bgEnabled  = document.getElementById('bgEnabled');
         var bgControls = document.getElementById('bgControls');
@@ -487,6 +496,16 @@
         }
     }
 
+    // Most people type "google.com" or "www.foxsports.com/..." without a scheme —
+    // the browser needs http(s):// or openUrl silently does nothing. Default to
+    // https:// rather than guessing http, since that's the safer/more common case.
+    function normalizeUrl(raw) {
+        var url = (raw || '').trim();
+        if (!url) return '';
+        if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(url)) url = 'https://' + url;
+        return url;
+    }
+
     function saveSettings() {
         if (!websocket) return;
         var teamSel     = document.getElementById('teamSelect');
@@ -495,10 +514,12 @@
         var bgEnabledEl = document.getElementById('bgEnabled');
         var bgColorEl   = document.getElementById('bgColorInput');
         var bgOpacityEl = document.getElementById('bgOpacityInput');
+        var customUrlEl = document.getElementById('customUrlInput');
         var settings = {
             teamId:    teamSel.value,
             teamAbbr:  abbr || '',
             linkType:  linkSel.value,
+            customUrl: normalizeUrl(customUrlEl.value),
             bgColor:   bgEnabledEl.checked ? bgColorEl.value : null,
             bgOpacity: parseInt(bgOpacityEl.value, 10),
         };
@@ -512,7 +533,25 @@
         if (this.value) saveSettings();
     });
 
-    document.getElementById('linkType').addEventListener('change', saveSettings);
+    function toggleCustomUrlField() {
+        var linkSel = document.getElementById('linkType');
+        document.getElementById('customUrlField').style.display = (linkSel.value === 'custom') ? 'block' : 'none';
+    }
+
+    document.getElementById('linkType').addEventListener('change', function() {
+        toggleCustomUrlField();
+        saveSettings();
+    });
+
+    document.getElementById('customUrlInput').addEventListener('input', saveSettings);
+
+    // Rewrite the field to the normalized (scheme-prefixed) value once the user
+    // leaves it, so what they see matches what actually gets saved and opened —
+    // done on blur rather than every keystroke so it doesn't fight the cursor
+    // while typing.
+    document.getElementById('customUrlInput').addEventListener('blur', function() {
+        this.value = normalizeUrl(this.value);
+    });
 
     // ── Background color controls ─────────────────────────────────────────────
     var bgEnabledEl      = document.getElementById('bgEnabled');

@@ -4,7 +4,7 @@
 
 A Stream Deck plugin that shows live MLB scores directly on your buttons. Each button tracks one team and updates automatically every 30 seconds.
 
-![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.27-green)
+![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.28-green)
 
 ---
 
@@ -14,7 +14,7 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 - **Pre-game** — shows the matchup (e.g. `ATL @ NYM`) and scheduled start time
 - **Final scores** — shows the final score with a "Final" label
 - **Score-change flash** — when a team scores, the button flashes in that team's primary color
-- **Browser shortcut** — press any button to open that game in MLB Gameday or MLB.tv; switches to Gameday automatically 30 minutes after the final out
+- **Browser shortcut** — press any button to open that game in MLB Gameday, MLB.tv, or a custom link of your choice (e.g. your regional sports network); switches to Gameday automatically 30 minutes after the final out
 - **Doubleheader support** — automatically shows Game 1, then switches to Game 2 when it ends; G1/G2 label keeps you oriented
 - **Doubleheader toggle** — double-click a doubleheader button to peek at the other game; auto-reverts after 15 seconds
 - **No-flicker updates** — buttons only redraw when the display actually changes
@@ -30,6 +30,9 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 ---
 
 ## Recent Updates
+
+**v1.0.28.0**
+- Added a "Custom Link" option to Button Press Opens — enter any URL (e.g. your regional sports network's live-game page) and the button opens Gameday until the game actually starts, then switches to your link. Falls back to Gameday if the field is left blank
 
 **v1.0.27.0**
 - Added a search box to the settings panel (matching Live CFB Scores and Live MiLB Scores) — type a team, city, or abbreviation for autocomplete instead of scrolling the Team dropdown. Picking a result still syncs the dropdown underneath, so both paths stay in sync
@@ -147,12 +150,13 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 3. Choose what happens when you press the button:
    - **MLB Gameday (free)** — opens the game's live Gameday page in your browser
    - **MLB.tv (subscription)** — opens the game's MLB.tv broadcast page
+   - **Custom Link** — opens any URL you enter, such as your regional sports network's live-game page
 
 ![Settings pane](screenshots/LiveMLBScoresSettingsPane.png)
 
 That's it. The button will load your team's game within a few seconds and refresh every 30 seconds from there.
 
-> **Note:** If MLB.tv is selected but the game hasn't started yet (more than 60 minutes away), pressing the button will open Gameday instead. After the final out, the button continues opening MLB.tv for 30 minutes to cover post-game coverage, then automatically switches to Gameday.
+> **Note:** If MLB.tv or Custom Link is selected but the game hasn't started yet (more than 60 minutes away), pressing the button will open Gameday instead — a Custom Link with no URL entered behaves the same way. After the final out, the button continues opening MLB.tv/your custom link for 30 minutes to cover post-game coverage, then automatically switches to Gameday.
 
 ---
 
