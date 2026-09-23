@@ -1,6 +1,6 @@
 # Live MLB Scores — Stream Deck Plugin
 
-![Live MLB Scores in action](screenshots/LiveMLBScoresThumbnail.png)
+![Live MLB Scores in action](assets/LiveMLBScoresThumbnail.png)
 
 A Stream Deck plugin that shows live MLB scores directly on your keys. Each key tracks one team and updates automatically every 30 seconds.
 
@@ -24,7 +24,7 @@ A Stream Deck plugin that shows live MLB scores directly on your keys. Each key 
 - **Custom key background color** — pick your own background color and opacity instead of the default black
 - **Search** — type a team, city, or abbreviation to jump straight to it instead of scrolling the dropdown
 
-![Custom key background colors](screenshots/LiveMLBScoresCustomBackgroundColors.png)
+![Custom key background colors](assets/LiveMLBScoresCustomBackgroundColors.png)
 *The Braves (left, Live MLB Scores) alongside four of their affiliates (Live MiLB Scores), each with its own custom key background color.*
 
 ---
@@ -152,7 +152,7 @@ A Stream Deck plugin that shows live MLB scores directly on your keys. Each key 
    - **MLB.tv (subscription)** — opens the game's MLB.tv broadcast page
    - **Custom Link** — opens any URL you enter, such as your regional sports network's live-game page
 
-![Settings pane](screenshots/LiveMLBScoresSettingsPane.png)
+![Settings pane](assets/LiveMLBScoresSettingsPane.png)
 
 That's it. The key will load your team's game within a few seconds and refresh every 30 seconds from there.
 
@@ -162,7 +162,7 @@ That's it. The key will load your team's game within a few seconds and refresh e
 
 ## What the Key Shows
 
-![Live score key](screenshots/LiveMLBScoresButtonStates.png)
+![Live score key](assets/LiveMLBScoresButtonStates.png)
 
 **Before the game:**
 ```
