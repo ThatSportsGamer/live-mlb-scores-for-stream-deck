@@ -2,7 +2,7 @@
 
 ![Live MLB Scores in action](screenshots/LiveMLBScoresThumbnail.png)
 
-A Stream Deck plugin that shows live MLB scores directly on your buttons. Each button tracks one team and updates automatically every 30 seconds.
+A Stream Deck plugin that shows live MLB scores directly on your keys. Each key tracks one team and updates automatically every 30 seconds.
 
 ![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.28-green)
 
@@ -13,14 +13,14 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 - **Live scores** — shows away score, home score, and current inning while a game is in progress
 - **Pre-game** — shows the matchup (e.g. `ATL @ NYM`) and scheduled start time
 - **Final scores** — shows the final score with a "Final" label
-- **Score-change flash** — when a team scores, the button flashes in that team's primary color
-- **Browser shortcut** — press any button to open that game in MLB Gameday, MLB.tv, or a custom link of your choice (e.g. your regional sports network); switches to Gameday automatically 30 minutes after the final out
+- **Score-change flash** — when a team scores, the key flashes in that team's primary color
+- **Browser shortcut** — press any key to open that game in MLB Gameday, MLB.tv, or a custom link of your choice (e.g. your regional sports network); switches to Gameday automatically 30 minutes after the final out
 - **Doubleheader support** — automatically shows Game 1, then switches to Game 2 when it ends; G1/G2 label keeps you oriented
-- **Doubleheader toggle** — double-click a doubleheader button to peek at the other game; auto-reverts after 15 seconds
-- **No-flicker updates** — buttons only redraw when the display actually changes
-- **Multi-button support** — add as many team buttons as you want, each refreshes independently
-- **All-Star Game coverage** — when your team has no game during the All-Star break, the button automatically shows the All-Star Game itself (AL in red, NL in blue) until it's over
-- **Next game on off days** — instead of a dead-end "No Game", the button shows your team's next scheduled matchup, date, and time
+- **Doubleheader toggle** — double-click a doubleheader key to peek at the other game; auto-reverts after 15 seconds
+- **No-flicker updates** — keys only redraw when the display actually changes
+- **Multi-key support** — add as many team keys as you want, each refreshes independently
+- **All-Star Game coverage** — when your team has no game during the All-Star break, the key automatically shows the All-Star Game itself (AL in red, NL in blue) until it's over
+- **Next game on off days** — instead of a dead-end "No Game", the key shows your team's next scheduled matchup, date, and time
 - **Custom key background color** — pick your own background color and opacity instead of the default black
 - **Search** — type a team, city, or abbreviation to jump straight to it instead of scrolling the dropdown
 
@@ -32,7 +32,7 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 ## Recent Updates
 
 **v1.0.28.0**
-- Added a "Custom Link" option to Button Press Opens — enter any URL (e.g. your regional sports network's live-game page) and the button opens Gameday until the game actually starts, then switches to your link. Falls back to Gameday if the field is left blank
+- Added a "Custom Link" option to Key Press Opens — enter any URL (e.g. your regional sports network's live-game page) and the key opens Gameday until the game actually starts, then switches to your link. Falls back to Gameday if the field is left blank
 
 **v1.0.27.0**
 - Added a search box to the settings panel (matching Live CFB Scores and Live MiLB Scores) — type a team, city, or abbreviation for autocomplete instead of scrolling the Team dropdown. Picking a result still syncs the dropdown underneath, so both paths stay in sync
@@ -41,57 +41,57 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 - Added a custom key background color option (matching Live NFL Scores and Live CFB Scores) — pick a color and opacity in the settings panel instead of the default black
 
 **v1.0.25.0**
-- Fixed: pressing a button set to MLB.tv during the Warmup state (right before first pitch, including right after a rain delay clears) fell back to Gameday instead of opening the stream — MLB.tv already carries Warmup as pre-game coverage, so it now opens directly
+- Fixed: pressing a key set to MLB.tv during the Warmup state (right before first pitch, including right after a rain delay clears) fell back to Gameday instead of opening the stream — MLB.tv already carries Warmup as pre-game coverage, so it now opens directly
 
 **v1.0.24.0**
-- Coming out of a rain delay, the button now shows `WARMUP` alongside the original scheduled time instead of just re-displaying that now-stale clock as if nothing happened
+- Coming out of a rain delay, the key now shows `WARMUP` alongside the original scheduled time instead of just re-displaying that now-stale clock as if nothing happened
 
 **v1.0.23.0**
 - Fixed: a pre-game weather delay (e.g. "Delayed Start") could be misread as a mid-game delay because MLB's linescore data pre-populates a "Top 1" shell before first pitch — this in turn caused the previous fix's MLB.tv fallback check to think the game had started and open the stream early. Now checks the game's actual live/preview status instead
 
 **v1.0.22.0**
-- Fixed: pressing a button set to MLB.tv for a game delayed past its scheduled start time no longer opens the stream early — the plugin now checks the game's actual status instead of the clock, so a rain delay correctly falls back to Gameday until the game actually begins
+- Fixed: pressing a key set to MLB.tv for a game delayed past its scheduled start time no longer opens the stream early — the plugin now checks the game's actual status instead of the clock, so a rain delay correctly falls back to Gameday until the game actually begins
 
 **v1.0.21.0**
 - Fixed: Gameday links now use the correct calendar date for evening games — West Coast/Mountain teams whose game time crosses into the next UTC day (e.g. a 7:10pm Denver first pitch) were getting a link one day ahead of the real game
 
 **v1.0.20.0**
-- Fixed: Gameday links now use the correct URL suffix for the game's actual state — pressing a button for a preview, delayed, postponed, or "Next Game" matchup no longer sends you to a blank `/live` page
+- Fixed: Gameday links now use the correct URL suffix for the game's actual state — pressing a key for a preview, delayed, postponed, or "Next Game" matchup no longer sends you to a blank `/live` page
 
 **v1.0.19.0**
-- Trimmed the "Next Game" date to just month/day (e.g. `7/25`) instead of including the day of the week — the line was running out of room on the button
+- Trimmed the "Next Game" date to just month/day (e.g. `7/25`) instead of including the day of the week — the line was running out of room on the key
 
 **v1.0.18.0**
 - Fixed: the All-Star Game could return a broken MLB.tv link on years an AL park hosts it — Gameday fallback now correctly detects the game regardless of which league is home or away
 - Fixed: postponed, suspended, and pre-game delayed games now carry full team info so the Gameday link opens the correct game instead of a generic fallback URL
 
 **v1.0.17.0**
-- On off days, the button now shows your team's next scheduled game (matchup, date, and time) instead of a dead-end "No Game"
+- On off days, the key now shows your team's next scheduled game (matchup, date, and time) instead of a dead-end "No Game"
 
 **v1.0.16.0**
 - Fixed: the inning/out indicator row now stays centered when a G1 or G2 label is shown during doubleheaders
 
 **v1.0.15.0**
-- Pre-game delays now show the updated start time alongside the DELAY indicator — if the first pitch gets pushed back, the button reflects the new time within 30 seconds
+- Pre-game delays now show the updated start time alongside the DELAY indicator — if the first pitch gets pushed back, the key reflects the new time within 30 seconds
 
 **v1.0.14.0**
-- Fixed: button no longer switches to "Top 1" during pre-game warmups before first pitch — the matchup and start time stay visible until the game actually begins
+- Fixed: key no longer switches to "Top 1" during pre-game warmups before first pitch — the matchup and start time stay visible until the game actually begins
 
 **v1.0.13.0**
-- During the All-Star break, a team button with no game now shows the All-Star Game instead of "No Game" — AL vs. NL score, inning, and out indicators, just like a regular game, with AL shown in red and NL in blue
+- During the All-Star break, a team key with no game now shows the All-Star Game instead of "No Game" — AL vs. NL score, inning, and out indicators, just like a regular game, with AL shown in red and NL in blue
 
 **v1.0.12.0**
 - Out indicators: two dots appear to the left of the inning — gray for unrecorded outs, red for recorded outs (inspired by classic out-of-town scoreboards)
 
 **v1.0.9.0**
-- After a game ends, pressing a button set to MLB.tv now opens Gameday instead — the MLB.tv link stays active for 30 minutes post-game to cover any post-game coverage, then switches automatically
-- If the plugin loads and the game is already final, pressing the button goes straight to Gameday
+- After a game ends, pressing a key set to MLB.tv now opens Gameday instead — the MLB.tv link stays active for 30 minutes post-game to cover any post-game coverage, then switches automatically
+- If the plugin loads and the game is already final, pressing the key goes straight to Gameday
 
 **v1.0.8.0**
-- Double-click a doubleheader button to peek at the other game — when Game 1 is active, see Game 2's start time; when Game 2 is active, see Game 1's final score
+- Double-click a doubleheader key to peek at the other game — when Game 1 is active, see Game 2's start time; when Game 2 is active, see Game 1's final score
 - Double-click again to snap back to the active game, or wait 15 seconds to auto-revert
 - Single-clicking while viewing the other game opens that game's Gameday page
-- Score changes and end-of-game fireworks always return the button to the active game view
+- Score changes and end-of-game fireworks always return the key to the active game view
 
 **v1.0.7.0**
 - Doubleheader support: automatically shows Game 1 until it ends, then switches to Game 2
@@ -120,8 +120,8 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 - Added custom icons
 
 **v1.0.1**
-- Schedule holds on the current day's games until 2am local time, so late-running games stay on the button until they finish
-- Pressing a button set to MLB.tv now opens Gameday instead if the game is more than an hour from first pitch
+- Schedule holds on the current day's games until 2am local time, so late-running games stay on the key until they finish
+- Pressing a key set to MLB.tv now opens Gameday instead if the game is more than an hour from first pitch
 
 ---
 
@@ -145,24 +145,24 @@ A Stream Deck plugin that shows live MLB scores directly on your buttons. Each b
 
 ## Setup
 
-1. Drag the **Live MLB Scores** action onto any button
+1. Drag the **Live MLB Scores** action onto any key
 2. In the settings panel on the right, select your team from the dropdown
-3. Choose what happens when you press the button:
+3. Choose what happens when you press the key:
    - **MLB Gameday (free)** — opens the game's live Gameday page in your browser
    - **MLB.tv (subscription)** — opens the game's MLB.tv broadcast page
    - **Custom Link** — opens any URL you enter, such as your regional sports network's live-game page
 
 ![Settings pane](screenshots/LiveMLBScoresSettingsPane.png)
 
-That's it. The button will load your team's game within a few seconds and refresh every 30 seconds from there.
+That's it. The key will load your team's game within a few seconds and refresh every 30 seconds from there.
 
-> **Note:** If MLB.tv or Custom Link is selected but the game hasn't started yet (more than 60 minutes away), pressing the button will open Gameday instead — a Custom Link with no URL entered behaves the same way. After the final out, the button continues opening MLB.tv/your custom link for 30 minutes to cover post-game coverage, then automatically switches to Gameday.
+> **Note:** If MLB.tv or Custom Link is selected but the game hasn't started yet (more than 60 minutes away), pressing the key will open Gameday instead — a Custom Link with no URL entered behaves the same way. After the final out, the key continues opening MLB.tv/your custom link for 30 minutes to cover post-game coverage, then automatically switches to Gameday.
 
 ---
 
-## What the Button Shows
+## What the Key Shows
 
-![Live score button](screenshots/LiveMLBScoresButtonStates.png)
+![Live score key](screenshots/LiveMLBScoresButtonStates.png)
 
 **Before the game:**
 ```
@@ -195,15 +195,15 @@ ATL @ NYM
 
 ## How It Works
 
-The plugin polls [MLB's free public Stats API](https://statsapi.mlb.com) once every 30 seconds per button. No API key or account is required. The plugin is fully self-contained — it uses only Node.js built-in modules and requires no external dependencies.
+The plugin polls [MLB's free public Stats API](https://statsapi.mlb.com) once every 30 seconds per key. No API key or account is required. The plugin is fully self-contained — it uses only Node.js built-in modules and requires no external dependencies.
 
-The schedule holds on the current day's games until 2 AM local time, so late-running games stay on the button until they finish.
+The schedule holds on the current day's games until 2 AM local time, so late-running games stay on the key until they finish.
 
 ---
 
 ## Uninstalling
 
-Open Stream Deck → Preferences → Plugins, select **Live MLB Scores**, and click the **−** button.
+Open Stream Deck → Preferences → Plugins, select **Live MLB Scores**, and click the **−** key.
 
 ---
 

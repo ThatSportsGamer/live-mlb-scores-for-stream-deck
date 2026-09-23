@@ -1,7 +1,7 @@
 {
     "Author": "T.J. Lauerman aka ThatSportsGamer",
     "CodePath": "plugin.js",
-    "Description": "Shows live MLB scores on your Stream Deck. Each button tracks one team \u2014 see the current score, inning, and game status at a glance.",
+    "Description": "Shows live MLB scores on your Stream Deck. Each key tracks one team \u2014 see the current score, inning, and game status at a glance.",
     "Name": "Live MLB Scores",
     "UUID": "com.tj.livemlbscores",
     "Category": "Live Sports Scores",
