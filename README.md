@@ -4,7 +4,7 @@
 
 A Stream Deck plugin that shows live MLB scores directly on your keys. Each key tracks one team and updates automatically every 30 seconds.
 
-![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.28-green)
+![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.29-green) [![Elgato Marketplace](https://img.shields.io/badge/Elgato-Marketplace-black)](https://marketplace.elgato.com/product/live-mlb-scores-fbafac13-4e61-4452-b677-5e60fea52639)
 
 ---
 
@@ -30,6 +30,12 @@ A Stream Deck plugin that shows live MLB scores directly on your keys. Each key 
 ---
 
 ## Recent Updates
+
+**v1.0.29.0**
+- Added a high-resolution (@2x) plugin icon so it stays sharp on Retina/high-DPI displays
+- Settings panel's Custom Link hint now mentions the link stays active for 30 minutes after the final out, then reverts to Gameday
+- Custom Link URLs are also tidied up by the plugin itself (spaces trimmed, https:// added if missing, non-web links ignored) — a backstop for links saved before the settings panel started doing this
+- Turned off Node debug mode for release builds
 
 **v1.0.28.0**
 - Added a "Custom Link" option to Key Press Opens — enter any URL (e.g. your regional sports network's live-game page) and the key opens Gameday until the game actually starts, then switches to your link. Falls back to Gameday if the field is left blank
@@ -137,9 +143,15 @@ A Stream Deck plugin that shows live MLB scores directly on your keys. Each key 
 
 ## Installation
 
+**Elgato Marketplace (recommended)**
+
+1. Open **[Live MLB Scores on the Elgato Marketplace](https://marketplace.elgato.com/product/live-mlb-scores-fbafac13-4e61-4452-b677-5e60fea52639)** and install it from there
+2. The plugin will appear in the Stream Deck action picker under **Live MLB Scores**
+
+**Manual install**
+
 1. Download the latest **`Live MLB Scores.streamDeckPlugin`** from the [Releases](../../releases) page
 2. Double-click the file — Stream Deck will install it automatically
-3. The plugin will appear in the Stream Deck action picker under **Live MLB Scores**
 
 ---
 

@@ -536,7 +536,21 @@ const teamSlug  = id => TEAMS[id]?.slug  || '';
 const teamColor = id => TEAMS[id]?.color || '#FFFFFF';
 const teamName  = id => TEAMS[id]?.name  || teamAbbr(id);
 
+// Tidies a user-typed Custom Link: trims whitespace and adds https:// when no
+// scheme was typed ("www.foxsports.com/live/sny" -> "https://www.foxsports.com/live/sny"),
+// since Stream Deck won't open a bare domain as a web page. Returns '' for
+// anything that can't be a web link (blank, or a non-http scheme like file:),
+// so callers fall back to the default link instead of opening nothing.
+function normalizeCustomUrl(raw) {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    if (/^https?:\/\//i.test(s)) return s;
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(s) || /^(javascript|data|file|vbscript|mailto):/i.test(s)) return '';
+    return 'https://' + s.replace(/^\/+/, '');
+}
+
 function buildGameUrl(game, linkType, customUrl) {
+    customUrl = normalizeCustomUrl(customUrl);
     if (!game || !game.gamePk) return 'https://www.mlb.com';
     const away = teamSlug(game.awayId) || 'away';
     const home = teamSlug(game.homeId) || 'home';
