@@ -4,7 +4,7 @@
 
 A Stream Deck plugin that shows live MLB scores directly on your keys. Each key tracks one team and updates automatically every 30 seconds.
 
-![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.29-green) [![Elgato Marketplace](https://img.shields.io/badge/Elgato-Marketplace-black)](https://marketplace.elgato.com/product/live-mlb-scores-fbafac13-4e61-4452-b677-5e60fea52639)
+![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.30-green) [![Elgato Marketplace](https://img.shields.io/badge/Elgato-Marketplace-black)](https://marketplace.elgato.com/product/live-mlb-scores-fbafac13-4e61-4452-b677-5e60fea52639)
 
 ---
 
@@ -30,6 +30,9 @@ A Stream Deck plugin that shows live MLB scores directly on your keys. Each key 
 ---
 
 ## Recent Updates
+
+**v1.0.30.0**
+- Rained-out games that MLB cancels outright now show CANC instead of a 0-0 "Final" (doubleheaders included)
 
 **v1.0.29.0**
 - Added a high-resolution (@2x) plugin icon so it stays sharp on Retina/high-DPI displays
