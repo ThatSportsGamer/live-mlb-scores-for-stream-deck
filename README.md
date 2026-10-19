@@ -4,14 +4,14 @@
 
 A Stream Deck plugin that shows live MLB scores directly on your keys. Each key tracks one team and updates automatically every 30 seconds.
 
-![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.31-green) [![Elgato Marketplace](https://img.shields.io/badge/Elgato-Marketplace-black)](https://marketplace.elgato.com/product/live-mlb-scores-fbafac13-4e61-4452-b677-5e60fea52639)
+![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.32-green) [![Elgato Marketplace](https://img.shields.io/badge/Elgato-Marketplace-black)](https://marketplace.elgato.com/product/live-mlb-scores-fbafac13-4e61-4452-b677-5e60fea52639)
 
 ---
 
 ## Features
 
 - **Live scores** — shows away score, home score, and current inning while a game is in progress
-- **Pre-game** — shows the matchup (e.g. `ATL @ NYM`) and scheduled start time
+- **Pre-game** — the two teams stacked (`ATL` over `@ NYM`) and the start time; on off days, your team's next game with its day and time
 - **Final scores** — shows the final score with a "Final" label
 - **Score-change flash** — when a team scores, the key blinks in that team's primary color, then shows a short card with the team and how many runs scored (e.g. ATL / +2 RUNS)
 - **Browser shortcut** — press any key to open that game in MLB Gameday, MLB.tv, or a custom link of your choice (e.g. your regional sports network); switches to Gameday automatically 30 minutes after the final out
@@ -20,7 +20,7 @@ A Stream Deck plugin that shows live MLB scores directly on your keys. Each key 
 - **No-flicker updates** — keys only redraw when the display actually changes
 - **Multi-key support** — add as many team keys as you want, each refreshes independently
 - **All-Star Game coverage** — when your team has no game during the All-Star break, the key automatically shows the All-Star Game itself (AL in red, NL in blue) until it's over
-- **Next game on off days** — instead of a dead-end "No Game", the key shows your team's next scheduled matchup, date, and time
+- **Next game on off days** — instead of a dead-end "No Game", the key shows your team's next scheduled game with its day and time
 - **Custom key background color** — pick your own background color and opacity instead of the default black
 - **Search** — type a team, city, or abbreviation to jump straight to it instead of scrolling the dropdown
 
@@ -31,6 +31,13 @@ A Stream Deck plugin that shows live MLB scores directly on your keys. Each key 
 
 ## Recent Updates
 
+**v1.0.32.0**
+- Pregame keys match the NFL, CFB, NHL and NBA plugins: the teams stack on two lines (away team on top, "@ home" below, with a small "@"), then the start time. On game day it's just the teams and the time; for a later day the day gets its own gray line above the time
+- Off-day keys show your team's next game the same way: the "Next Game" label is gone, and the day line reads the weekday ("Thursday"), or the date when it's a week or more away
+- Doubleheaders put the game number on the day line ("Game 2")
+- Postponed, canceled, suspended, delayed and warmup keys use the same stacked teams
+- A postseason opponent that isn't decided yet shows its placeholder (e.g. `TB/CLE` for a World Series game) instead of "MLB"
+
 **v1.0.31.0**
 - Score flash is now 5 solid blinks of the scoring team's color with no text, so it reads at a glance even on light team colors
 - New: right after the flash, a 3-second card shows the scoring team and how many runs scored (e.g. ATL / +2 RUNS), then the score returns
@@ -38,12 +45,6 @@ A Stream Deck plugin that shows live MLB scores directly on your keys. Each key 
 
 **v1.0.30.0**
 - Rained-out games that MLB cancels outright now show CANC instead of a 0-0 "Final" (doubleheaders included)
-
-**v1.0.29.0**
-- Added a high-resolution (2x) plugin icon so it stays sharp on Retina/high-DPI displays
-- Settings panel's Custom Link hint now mentions the link stays active for 30 minutes after the final out, then reverts to Gameday
-- Custom Link URLs are also tidied up by the plugin itself (spaces trimmed, https:// added if missing, non-web links ignored) — a backstop for links saved before the settings panel started doing this
-- Turned off Node debug mode for release builds
 
 Older updates: see the full version history in [CHANGELOG.md](CHANGELOG.md).
 
@@ -96,8 +97,9 @@ That's it. The key will load your team's game within a few seconds and refresh e
 
 **Before the game:**
 ```
-ATL @ NYM
- 7:10 PM
+ATL
+@ NYM
+7:10 PM
 ```
 
 **Live game:**
@@ -114,11 +116,12 @@ NYM  1
 Final
 ```
 
-**Off day:**
+**Off day** (your team's next game — the weekday, or the date when it's a week or more away):
 ```
-Next Game
-ATL @ NYM
-7/25 7:10 PM
+ATL
+@ NYM
+Thursday
+7:10 PM
 ```
 
 ---
