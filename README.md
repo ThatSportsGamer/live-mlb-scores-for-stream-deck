@@ -4,7 +4,7 @@
 
 A Stream Deck plugin that shows live MLB scores directly on your keys. Each key tracks one team and updates automatically every 30 seconds.
 
-![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.32-green) [![Elgato Marketplace](https://img.shields.io/badge/Elgato-Marketplace-black)](https://marketplace.elgato.com/product/live-mlb-scores-fbafac13-4e61-4452-b677-5e60fea52639)
+![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-1.0.33-green) [![Elgato Marketplace](https://img.shields.io/badge/Elgato-Marketplace-black)](https://marketplace.elgato.com/product/live-mlb-scores-fbafac13-4e61-4452-b677-5e60fea52639)
 
 ---
 
@@ -31,6 +31,12 @@ A Stream Deck plugin that shows live MLB scores directly on your keys. Each key 
 
 ## Recent Updates
 
+**v1.0.33.0**
+- Fixed: "today" is now read in Eastern time, which is how MLB dates its schedule. Outside the US the keys could ask for tomorrow's slate while tonight's games were still on. The day now changes at 5:00 AM Eastern (2:00 AM Pacific), so late games and their finals stay on the keys overnight everywhere
+- Far fewer requests: all your keys now share one request for the day's schedule instead of every key asking for its own team
+- If MLB's data stops responding for a moment, keys keep showing the last scores with a small amber dot instead of "Err" (after 10 minutes without an update they show "Err")
+- Now runs on Node.js 24 and needs Stream Deck 7.1 or later (Elgato is retiring Node.js 20)
+
 **v1.0.32.0**
 - Pregame keys match the NFL, CFB, NHL and NBA plugins: the teams stack on two lines (away team on top, "@ home" below, with a small "@"), then the start time. On game day it's just the teams and the time; for a later day the day gets its own gray line above the time
 - Off-day keys show your team's next game the same way: the "Next Game" label is gone, and the day line reads the weekday ("Thursday"), or the date when it's a week or more away
@@ -43,9 +49,6 @@ A Stream Deck plugin that shows live MLB scores directly on your keys. Each key 
 - New: right after the flash, a 3-second card shows the scoring team and how many runs scored (e.g. ATL / +2 RUNS), then the score returns
 - Settings help text now says "key" instead of "button"
 
-**v1.0.30.0**
-- Rained-out games that MLB cancels outright now show CANC instead of a 0-0 "Final" (doubleheaders included)
-
 Older updates: see the full version history in [CHANGELOG.md](CHANGELOG.md).
 
 ---
@@ -54,7 +57,7 @@ Older updates: see the full version history in [CHANGELOG.md](CHANGELOG.md).
 ## Requirements
 
 - [Elgato Stream Deck](https://www.elgato.com/stream-deck) hardware
-- [Stream Deck software](https://www.elgato.com/downloads) version 6.0 or later (Mac or Windows)
+- [Stream Deck software](https://www.elgato.com/downloads) version 7.1 or later (Mac or Windows)
 - No account required to view scores — the plugin uses MLB's free public stats API
 - An MLB.tv subscription is required only if you choose the MLB.tv link option; Gameday is free
 
@@ -130,7 +133,7 @@ Thursday
 
 The plugin polls [MLB's free public Stats API](https://statsapi.mlb.com) once every 30 seconds per key. No API key or account is required. The plugin is fully self-contained — it uses only Node.js built-in modules and requires no external dependencies.
 
-The schedule holds on the current day's games until 2 AM local time, so late-running games stay on the key until they finish.
+The schedule holds on the current day's games until 5 AM Eastern (2 AM Pacific), so late-running games stay on the key until they finish.
 
 ---
 
