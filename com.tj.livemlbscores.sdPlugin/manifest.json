@@ -1,14 +1,14 @@
 {
     "Author": "T.J. Lauerman aka ThatSportsGamer",
     "CodePath": "plugin.js",
-    "Description": "Shows live MLB scores on your Stream Deck. Each key tracks one team — see the current score, inning, and game status at a glance.",
+    "Description": "Shows live baseball scores on your Stream Deck: MLB, the minors, Rookie ball, the Arizona Fall League and winter leagues. Follow one team per key, or fill a group of keys with a whole slate of games.",
     "Name": "Live MLB Scores",
     "UUID": "com.tj.livemlbscores",
     "Category": "Live Sports Scores",
     "URL": "https://github.com/ThatSportsGamer/live-mlb-scores-for-stream-deck",
     "Icon": "imgs/plugin-icon",
     "CategoryIcon": "imgs/category-icon",
-    "Version": "1.0.33.0",
+    "Version": "2.0.0.0",
     "SDKVersion": 3,
     "Software": {
         "MinimumVersion": "7.1"
@@ -32,11 +32,25 @@
             "Name": "Live MLB Scores",
             "UUID": "com.tj.livemlbscores.score",
             "Icon": "imgs/action-icon",
-            "Tooltip": "Shows live score for your chosen MLB team. Updates every 30 seconds.",
+            "Tooltip": "Shows live score for your chosen baseball team (MLB, minors, winter leagues). Updates every 30 seconds.",
             "PropertyInspectorPath": "property-inspector.html",
             "States": [
                 {
                     "Image": "imgs/action-icon",
+                    "Title": ""
+                }
+            ],
+            "SupportedInMultiActions": false
+        },
+        {
+            "Name": "Live MLB Scoreboard",
+            "UUID": "com.tj.livemlbscores.scoreboard",
+            "Icon": "imgs/scoreboard-icon",
+            "Tooltip": "Fills a group of keys with every game in MLB or a league today. Updates every 30 seconds.",
+            "PropertyInspectorPath": "scoreboard-inspector.html",
+            "States": [
+                {
+                    "Image": "imgs/scoreboard-icon",
                     "Title": ""
                 }
             ],

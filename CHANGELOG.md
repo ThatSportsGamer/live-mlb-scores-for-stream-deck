@@ -2,6 +2,19 @@
 
 Full version history for Live MLB Scores, newest first. The [README](README.md) lists the three most recent updates.
 
+**v2.0.0.0**
+- Live MLB Scores, Live MiLB Scores and Live MLB Scoreboard are now one plugin. Existing Live MLB Scores keys keep their team, Key Press Opens choice, Custom Link and background when you upgrade
+- Minor-league teams from Triple-A down to Single-A, browsable by league or by MLB organization, plus Rookie ball: the Arizona Complex, Florida Complex and Dominican Summer leagues
+- Fall and winter leagues: the Arizona Fall League, the Australian Baseball League, the Dominican (LIDOM), Mexican (LMP), Puerto Rican (LBPRC) and Venezuelan (LVBP) winter leagues, and the Caribbean Series
+- Summer college and draft leagues: the MLB Draft League, the Cape Cod League and the Appalachian League
+- New **Live MLB Scoreboard** action: fill a group of keys with a whole day's games for MLB or any league above. Each board has its own league, fill order, background and an option to send completed games to the end; the settings panel says how many touching keys a change applies to, a "+N more" key shows hidden games, and removing a key re-flows the board right away
+- Key presses: LIDOM and LMP games open their MLB.TV page while live, Arizona Fall League games open the game's video page, and leagues without a stream link open Gameday (the stream option is greyed out in the settings panel with a note). A "+N more" or "No Game" press opens that league's own schedule page
+- Suspended games show SUSP, then RESUME with the start time on the day they pick back up
+- If one league's data stalls, only that league's keys get the amber dot, and a Scoreboard shows `<league> / Err` after 10 minutes. Other leagues keep updating on their own
+- Australian overnight games stay on the keys: the day still rolls over at 5:00 AM Eastern
+- Team search ranks results (exact abbreviation first, then name matches)
+- plugin.log now rotates to plugin.old.log at its 512 KB cap and writes routine repeat lines once every 30 minutes
+
 **v1.0.33.0**
 - Fixed: "today" is now read in Eastern time, which is how MLB dates its schedule. Outside the US the keys could ask for tomorrow's slate while tonight's games were still on. The day now changes at 5:00 AM Eastern (2:00 AM Pacific), so late games and their finals stay on the keys overnight everywhere
 - Far fewer requests: all your keys now share one request for the day's schedule instead of every key asking for its own team

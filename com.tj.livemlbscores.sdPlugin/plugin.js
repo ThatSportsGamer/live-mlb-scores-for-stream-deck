@@ -1,5 +1,5 @@
 /**
- * MLB Scores — Stream Deck Plugin
+ * Live MLB Scores 2.0 — Stream Deck Plugin
  * Uses Node.js built-in modules only (net, https, crypto).
  * No npm packages required.
  */
@@ -12,14 +12,19 @@ const crypto = require('crypto');
 const events = require('events');
 const path   = require('path');
 const fs     = require('fs');
+const { AsyncLocalStorage } = require('async_hooks');
 
 // ── Logging ───────────────────────────────────────────────────────────────────
 const LOG_FILE = path.join(__dirname, 'plugin.log');
-try { fs.writeFileSync(LOG_FILE, `=== MLB Plugin ${new Date().toISOString()} ===\nNode: ${process.version}\nArgs: ${process.argv.slice(2).join(' ')}\n`); } catch (e) { /* ignore */ }
+const LOG_OLD  = path.join(__dirname, 'plugin.old.log');
+try { fs.renameSync(LOG_FILE, LOG_OLD); } catch (e) { /* no previous log */ }   // keep the run before a restart
+try { fs.writeFileSync(LOG_FILE, `=== MLB 2.0 Plugin ${new Date().toISOString()} ===\nNode: ${process.version}\nArgs: ${process.argv.slice(2).join(' ')}\n`); } catch (e) { /* ignore */ }
 
 // plugin.log is only reset when the plugin starts, so on a deck that stays up
-// for days it would otherwise grow without limit (every poll logs a few lines).
-// Past LOG_MAX_BYTES it is truncated and starts over.
+// for days it would otherwise grow without limit. Past LOG_MAX_BYTES it is moved
+// to plugin.old.log (replacing the previous one) and a fresh plugin.log starts,
+// so the last one to two files' worth of history is always on disk.
+// Routine repeats go through logQuiet() and are written once per 30 min unless they change.
 const LOG_MAX_BYTES = 512 * 1024;
 let   logBytes      = 0;
 
@@ -27,10 +32,24 @@ function log(...args) {
     const ts   = new Date().toISOString().slice(11, 19);
     const line = `[${ts}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}\n`;
     try {
-        if (logBytes > LOG_MAX_BYTES) { fs.writeFileSync(LOG_FILE, `=== log trimmed ${new Date().toISOString()} ===\n`); logBytes = 0; }
+        if (logBytes > LOG_MAX_BYTES) {
+            try { fs.renameSync(LOG_FILE, LOG_OLD); } catch (e) { /* ignore */ }
+            fs.writeFileSync(LOG_FILE, `=== log rotated ${new Date().toISOString()} (earlier part in plugin.old.log) ===\n`); logBytes = 0;
+        }
         fs.appendFileSync(LOG_FILE, line);
         logBytes += line.length;
     } catch (e) { /* ignore */ }
+}
+
+const quietLast = new Map();   // channel -> { text, at }
+const QUIET_HEARTBEAT_MS = 30 * 60 * 1000;
+function logQuiet(chan, ...args) {
+    const text = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+    const prev = quietLast.get(chan), now = Date.now();
+    if (prev && prev.text === text && now - prev.at < QUIET_HEARTBEAT_MS) return;
+    if (quietLast.size > 2000) quietLast.clear();
+    quietLast.set(chan, { text, at: now });
+    log(...args);
 }
 
 process.on('uncaughtException',  err => log('CRASH:', err.stack || err.message));
@@ -48,7 +67,7 @@ for (let i = 0; i < argv.length; i++) {
 log('port=' + sdPort + ' uuid=' + pluginUUID + ' event=' + registerEvent);
 
 if (!sdPort || !pluginUUID || !registerEvent) {
-    log('ERROR: Missing required args. Stream Deck may not have launched this plugin correctly.');
+    log('ERROR: Missing required args.');
     process.exit(1);
 }
 
@@ -56,7 +75,7 @@ if (!sdPort || !pluginUUID || !registerEvent) {
 class SimpleWS extends events.EventEmitter {
     constructor(port, host) {
         super();
-        this.readyState  = 0; // CONNECTING
+        this.readyState  = 0;
         this._buf        = Buffer.alloc(0);
         this._handshaked = false;
 
@@ -102,7 +121,7 @@ class SimpleWS extends events.EventEmitter {
             }
 
             this._handshaked = true;
-            this.readyState  = 1; // OPEN
+            this.readyState  = 1;
             this._buf        = this._buf.slice(end);
             log('WS handshake OK');
             this.emit('open');
@@ -141,7 +160,7 @@ class SimpleWS extends events.EventEmitter {
 
             if      (opcode === 0x1) this.emit('message', payload.toString('utf8'));
             else if (opcode === 0x8) { this.readyState = 3; log('WS close frame'); this.emit('close'); return; }
-            else if (opcode === 0x9) this._sendFrame(0x8a, payload); // pong — must echo ping payload per RFC 6455
+            else if (opcode === 0x9) this._sendFrame(0x8a, payload); // pong — echo ping payload per RFC 6455
         }
     }
 
@@ -150,7 +169,6 @@ class SimpleWS extends events.EventEmitter {
         this._sendFrame(0x81, Buffer.from(String(str), 'utf8'));
     }
 
-    // Write one WebSocket frame. Client frames must be masked per RFC 6455.
     _sendFrame(opcode, payload) {
         const len  = payload.length;
         const mask = crypto.randomBytes(4);
@@ -176,14 +194,14 @@ class SimpleWS extends events.EventEmitter {
 }
 
 // ── Plugin state ──────────────────────────────────────────────────────────────
-const instances    = new Map(); // context -> { teamId, teamAbbr, linkType }
-const prevScores   = new Map(); // context -> { awayRuns, homeRuns }
-const prevState    = new Map(); // context -> last known game state string
-const flashing     = new Set(); // contexts mid-flash animation
-const refreshing   = new Set(); // contexts mid-async refresh
-const lastRender   = new Map(); // context -> JSON key of last rendered lines
-const currentGame  = new Map(); // context -> { gamePk, gameDate, homeId, awayId } | null
-const refreshTimers    = new Map(); // context -> intervalId (staggered per-button timers)
+const instances     = new Map(); // context -> settings
+const prevScores    = new Map(); // context -> { awayRuns, homeRuns }
+const prevState     = new Map(); // context -> last known game state string
+const flashing      = new Set();
+const refreshing    = new Set();
+const lastRender    = new Map();
+const currentGame   = new Map(); // context -> { gamePk, gameDate, homeSlug, awaySlug, homeId, awayId, gameState }
+const refreshTimers    = new Map();
 
 // ── Doubleheader double-click toggle ──────────────────────────────────────────
 const gameFinalAt       = new Map(); // context -> timestamp when live→final was detected
@@ -218,19 +236,22 @@ ws.on('close', ()  => {
 });
 
 // ── Stream Deck event handler ─────────────────────────────────────────────────
-function handleEvent({ event, context, payload }) {
+function handleEvent(ev) {
+    if (ev.action === BOARD_ACTION) return handleBoardEvent(ev);
+    const { event, context, payload } = ev;
     switch (event) {
 
         case 'willAppear':
             instances.set(context, (payload && payload.settings) || {});
             log('willAppear — settings:', instances.get(context));
             if (refreshTimers.has(context)) clearInterval(refreshTimers.get(context));
-            refreshTimers.set(context, setInterval(() => refreshButton(context), 30_000));
-            refreshButton(context);
+            refreshTimers.set(context, setInterval(() => refreshKey(context), 30_000));
+            refreshKey(context);
             break;
 
         case 'willDisappear':
             instances.delete(context);
+            keyDeps.delete(context);
             prevScores.delete(context);
             prevState.delete(context);
             lastRender.delete(context);
@@ -253,8 +274,8 @@ function handleEvent({ event, context, payload }) {
         case 'didReceiveSettings':
             instances.set(context, (payload && payload.settings) || {});
             log('didReceiveSettings:', instances.get(context));
-            lastRender.delete(context); // force redraw with new settings
-            refreshButton(context);
+            lastRender.delete(context);
+            refreshKey(context);
             break;
 
         case 'keyUp': {
@@ -278,7 +299,7 @@ function handleEvent({ event, context, payload }) {
                         dhViewOther.delete(context);
                         dhRevertTimers.delete(context);
                         lastRender.delete(context);
-                        refreshButton(context);
+                        refreshKey(context);
                     }, DH_REVERT_MS));
                 } else {
                     dhViewOther.delete(context);
@@ -288,7 +309,7 @@ function handleEvent({ event, context, payload }) {
                 lastRender.delete(context);
                 const lines   = dhViewOther.get(context) ? buildOtherLines(otherGame) : buildLines(game, cfg);
                 const spacing = lines.spacing || (lines.some(l => typeof l === 'object') ? 1.2 : 1.4);
-                setButton(context, lines, spacing, resolveBgColor(cfg));
+                setKey(context, lines, spacing, resolveBgColor(cfg));
 
             } else if (otherGame) {
                 // ── Single-click on a doubleheader: wait briefly for possible double-click ──
@@ -305,13 +326,11 @@ function handleEvent({ event, context, payload }) {
                             const ft = isActive ? gameFinalAt.get(context) : null;
                             if (!ft || Date.now() - ft > 30 * 60 * 1000) effectiveLink = 'gameday';
                         }
-                        const url = buildGameUrl(target, effectiveLink, cfg && cfg.customUrl);
-                        log('DH keyUp (single) — opening URL:', url);
-                        ws.send(JSON.stringify({ event: 'openUrl', payload: { url } }));
+                        openGameUrl(target, effectiveLink, cfg, 'DH keyUp (single)');
                     } else {
                         log('DH keyUp (single) — no game, refreshing');
                         lastRender.delete(context);
-                        refreshButton(context);
+                        refreshKey(context);
                     }
                 }, DOUBLE_CLICK_MS + 50));
 
@@ -324,13 +343,17 @@ function handleEvent({ event, context, payload }) {
                         const ft = gameFinalAt.get(context);
                         if (!ft || Date.now() - ft > 30 * 60 * 1000) effectiveLink = 'gameday';
                     }
-                    const url = buildGameUrl(game, effectiveLink, cfg && cfg.customUrl);
-                    log('keyUp — opening URL:', url);
-                    ws.send(JSON.stringify({ event: 'openUrl', payload: { url } }));
+                    openGameUrl(game, effectiveLink, cfg, 'keyUp');
+                } else if (!cfg || !cfg.teamId) {
+                    // A key with no team chosen yet: nothing to open
+                    log('keyUp — no team chosen, nothing to open');
                 } else {
-                    log('keyUp — no game, refreshing');
+                    // True "No Game" (nothing in the next two weeks): refresh, and open the team's schedule
+                    const url = teamSchedulePage(cfg);
+                    log('keyUp — no game, refreshing and opening schedule:', url);
+                    ws.send(JSON.stringify({ event: 'openUrl', payload: { url } }));
                     lastRender.delete(context);
-                    refreshButton(context);
+                    refreshKey(context);
                 }
             }
             break;
@@ -340,27 +363,29 @@ function handleEvent({ event, context, payload }) {
             if (payload && payload.settings) {
                 instances.set(context, payload.settings);
                 lastRender.delete(context);
-                refreshButton(context);
+                refreshKey(context);
             }
             break;
     }
 }
 
-// ── Refresh one button ────────────────────────────────────────────────────────
-async function refreshButton(context) {
+// ── Refresh one key ────────────────────────────────────────────────────────
+async function refreshKey(context) {
     if (refreshing.has(context)) { log('Refresh already in progress, skipping'); return; }
     if (flashing.has(context))   { log('Flash in progress, skipping refresh'); return; }
 
     const cfg = instances.get(context);
     if (!cfg || !cfg.teamId) {
-        setButton(context, ['Select A', 'Team In', 'Settings']);
+        setKey(context, ['Select A', 'Team In', 'Settings']);
         return;
     }
 
     refreshing.add(context);
-    log('Refreshing', cfg.teamAbbr || cfg.teamId);
+    logQuiet('ref:' + context, 'Refreshing', cfg.teamAbbr || cfg.teamId);
     try {
-        const game    = await fetchTodayGame(cfg.teamId);
+        const deps = new Set();
+        const game = await depScope.run(deps, () => fetchTodayGame(cfg));
+        keyDeps.set(context, deps);
         // The key may have left the screen while the request was in flight;
         // presenting now would re-create its per-key memory for nothing.
         if (!instances.has(context)) return;
@@ -373,23 +398,26 @@ async function refreshButton(context) {
         prevState.set(context, game ? game.state : null);
         if (prevGameState === 'live' && game && game.state === 'final') {
             const winnerIsHome = game.homeRuns >= game.awayRuns;
-            const winnerId     = winnerIsHome ? game.homeId   : game.awayId;
-            log('Game over — fireworks for', teamName(winnerId));
+            const winnerName   = winnerIsHome ? game.homeName : game.awayName;
+            const winnerOrgId  = winnerIsHome ? game.homeParentOrgId : game.awayParentOrgId;
+            const winnerId     = winnerIsHome ? game.homeId : game.awayId;
+            const winnerColor  = game.isMLB ? teamColor(winnerId) : (PARENT_ORG_COLOR[winnerOrgId] || '#FFD700');
+            log('Game over — fireworks for', winnerName);
             gameFinalAt.set(context, Date.now());
             dhViewOther.delete(context);
             clearTimeout(dhRevertTimers.get(context));
             dhRevertTimers.delete(context);
             refreshing.delete(context);
-            playFireworks(context, teamName(winnerId), teamColor(winnerId)).catch(e => log('fireworks error:', e.message));
+            playFireworks(context, winnerName, winnerColor).catch(e => log('fireworks error:', e.message));
             return;
         }
 
         const viewing  = dhViewOther.get(context) && game?.otherGame;
         const lines    = viewing ? buildOtherLines(game.otherGame) : buildLines(game, cfg);
         const spacing  = lines.spacing || (lines.some(l => typeof l === 'object') ? 1.2 : 1.4);
-        log('→', JSON.stringify(lines));
+        logQuiet('draw:' + context, '→', JSON.stringify(lines));
 
-        // Detect score change on live games and flash in the scoring team's color
+        // Detect score change and flash
         const prev = prevScores.get(context);
         if (game && game.state === 'live') {
             prevScores.set(context, { awayRuns: game.awayRuns, homeRuns: game.homeRuns });
@@ -397,9 +425,16 @@ async function refreshButton(context) {
                 const awayScored = game.awayRuns > prev.awayRuns;
                 const homeScored = game.homeRuns > prev.homeRuns;
                 if (awayScored || homeScored) {
-                    const color = (awayScored && homeScored) ? '#FFFFFF'
-                        : awayScored ? (teamColor(game.awayId))
-                                     : (teamColor(game.homeId));
+                    // Flash in the tracked team's parent org color if they scored,
+                    // or white if the opponent scored
+                    const trackedId    = parseInt(cfg.teamId, 10);
+                    const trackedIsAway = game.awayId === trackedId;
+                    const trackedScored = trackedIsAway ? awayScored : homeScored;
+                    const color = game.isMLB
+                        ? ((awayScored && homeScored) ? '#FFFFFF' : teamColor(awayScored ? game.awayId : game.homeId))
+                        : trackedScored
+                            ? (PARENT_ORG_COLOR[cfg.parentOrgId] || '#FFFFFF')
+                            : '#AAAAAA';
                     // Runs card (one team only — both teams scoring between polls
                     // only happens after missed polls, so that just flashes)
                     const card = (awayScored && homeScored) ? null
@@ -410,7 +445,7 @@ async function refreshButton(context) {
                     clearTimeout(dhRevertTimers.get(context));
                     dhRevertTimers.delete(context);
                     refreshing.delete(context);
-                    flashButton(context, color, lines, spacing, resolveBgColor(cfg), card).catch(e => log('flashButton error:', e.message));
+                    flashKey(context, color, lines, spacing, resolveBgColor(cfg), card).catch(e => log('flashKey error:', e.message));
                     return;
                 }
             }
@@ -418,10 +453,10 @@ async function refreshButton(context) {
             prevScores.delete(context);
         }
 
-        setButton(context, lines, spacing, resolveBgColor(cfg));
+        setKey(context, lines, spacing, resolveBgColor(cfg));
     } catch (err) {
         log('Fetch error:', err.message);
-        setButton(context, [cfg.teamAbbr || 'MLB', 'Err'], undefined, resolveBgColor(cfg));
+        setKey(context, [cfg.teamAbbr || 'MLB', 'Err'], undefined, resolveBgColor(cfg));
     } finally {
         refreshing.delete(context);
     }
@@ -439,19 +474,21 @@ function liveInnLine(outs, innText) {
     };
 }
 
-// ── Build button display lines ────────────────────────────────────────────────
+// ── Build key display lines ────────────────────────────────────────────────
 function buildLines(game, cfg) {
     const abbr = cfg.teamAbbr || 'MLB';
     if (!game) return [abbr, 'No Game'];
-
-    const gl = game.gameLabel ? ' ' + game.gameLabel : '';
 
     // Upcoming games (today, or the next one on an off day): stacked layout —
     // away / @ home / day / time, same as the NFL, CFB, NHL and NBA plugins.
     if (game.state === 'nextgame') return baseballPregameLines(game);
 
+    const gl = game.gameLabel ? ' ' + game.gameLabel : '';
+
     if (game.state === 'preview') return baseballPregameLines(game);
     if (game.state === 'ppd')     return baseballPregameLines(game, { text: (game.canceled ? 'CANC' : 'PPD') + gl, fs: 14, color: '#E74C3C' });
+    // The resume date's copy of a suspended game says RESUME and the time it picks back up; any other SUSP stays bare
+    if (game.state === 'susp' && game.resumed) return baseballPregameLines(game, w => [{ text: 'RESUME' + gl, fs: PRE_DAY_FS, color: '#E74C3C' }, { text: w.time, fs: PRE_TIME_FS }]);
     if (game.state === 'susp')    return baseballPregameLines(game, { text: 'SUSP' + gl, fs: 14, color: '#E74C3C' });
     // Pre-game rain delay / warmup: the start time, then the status underneath
     if (game.state === 'delay')   return baseballPregameLines(game, w => [{ text: w.time, fs: PRE_TIME_FS }, { text: 'DELAY' + gl, fs: PRE_TIME_FS, color: '#3498DB' }]);
@@ -506,6 +543,41 @@ function buildOtherLines(other) {
     }
 }
 
+// ── Parent org colors (MLB team IDs → primary color) ─────────────────────────
+// Used to flash in the tracked team's affiliate color when they score.
+const PARENT_ORG_COLOR = {
+    108: '#BA0021', // LAA Angels
+    109: '#A71930', // ARI Diamondbacks
+    110: '#DF4601', // BAL Orioles
+    111: '#BD3039', // BOS Red Sox
+    112: '#0E3386', // CHC Cubs
+    113: '#C6011F', // CIN Reds
+    114: '#E31937', // CLE Guardians
+    115: '#33006F', // COL Rockies
+    116: '#FA4616', // DET Tigers
+    117: '#EB6E1F', // HOU Astros
+    118: '#004687', // KC  Royals
+    119: '#005A9C', // LAD Dodgers
+    120: '#AB0003', // WSH Nationals
+    121: '#002D72', // NYM Mets
+    133: '#006B3F', // ATH Athletics
+    134: '#FDB827', // PIT Pirates
+    135: '#FFC425', // SD  Padres
+    136: '#005C5C', // SEA Mariners
+    137: '#FD5A1E', // SF  Giants
+    138: '#C41E3A', // STL Cardinals
+    139: '#F5D130', // TB  Rays
+    140: '#C0111F', // TEX Rangers
+    141: '#134A8E', // TOR Blue Jays
+    142: '#D31145', // MIN Twins
+    143: '#E81828', // PHI Phillies
+    144: '#CE1141', // ATL Braves
+    145: '#C4CED4', // CWS White Sox
+    146: '#00A3E0', // MIA Marlins
+    147: '#C4CED4', // NYY Yankees
+    158: '#FFC52F', // MIL Brewers
+};
+
 // ── Team data (abbr, URL slug, primary color) ─────────────────────────────────
 const TEAMS = {
     108: { abbr: 'LAA', slug: 'angels',     color: '#BA0021', name: 'Angels'       },
@@ -550,6 +622,12 @@ const teamSlug  = id => TEAMS[id]?.slug  || '';
 const teamColor = id => TEAMS[id]?.color || '#FFFFFF';
 const teamName  = id => TEAMS[id]?.name  || teamAbbr(id);
 
+// MLB clubs have fixed ids 108-147/158 (+159/160 All-Star); MiLB / winter ids never overlap.
+// Saved MLB keys (no level fields) are recognised by their id alone — no migration needed.
+const isMlbTeamId = id => !!TEAMS[Number(id)];
+const SCHEDULE_URL = 'https://statsapi.mlb.com/api/v1/schedule';
+
+// ── URL building ──────────────────────────────────────────────────────────────
 // Tidies a user-typed Custom Link: trims whitespace and adds https:// when no
 // scheme was typed ("www.foxsports.com/live/sny" -> "https://www.foxsports.com/live/sny"),
 // since Stream Deck won't open a bare domain as a web page. Returns '' for
@@ -563,7 +641,8 @@ function normalizeCustomUrl(raw) {
     return 'https://' + s.replace(/^\/+/, '');
 }
 
-function buildGameUrl(game, linkType, customUrl) {
+// MLB games (sport 1): the original MLB link rules, unchanged from Live MLB Scores 1.0.x
+function buildMlbGameUrl(game, linkType, customUrl) {
     customUrl = normalizeCustomUrl(customUrl);
     if (!game || !game.gamePk) return 'https://www.mlb.com';
     const away = teamSlug(game.awayId) || 'away';
@@ -591,7 +670,7 @@ function buildGameUrl(game, linkType, customUrl) {
     if (linkType === 'custom' && !isAllStarGame) {
         // Same pattern as the MLB.tv option: Gameday until the game actually starts (or is in
         // Warmup), then the user's own link — e.g. a regional sports network's live-game page.
-        // Also falls back to Gameday if no URL has been configured yet, so the button never
+        // Also falls back to Gameday if no URL has been configured yet, so the key never
         // opens a blank tab.
         const gameStarted = game.state === 'live' || game.state === 'delay-live' || game.state === 'final' || game.state === 'warmup';
         if (!gameStarted || !customUrl) {
@@ -603,7 +682,196 @@ function buildGameUrl(game, linkType, customUrl) {
     return gamedayUrl;
 }
 
+function buildGameUrl(game, linkType, teamId, customUrl) {
+    if (game && game.isMLB) return buildMlbGameUrl(game, linkType, customUrl);
+    customUrl = normalizeCustomUrl(customUrl);
+    if (!game || !game.gamePk) return 'https://www.milb.com';
+    // Winter leagues: MLB.com Gameday for everything (it also follows a postponed
+    // game's reassigned gamePk), MLB.TV for the stream option once the game starts
+    if (game.isWinter) {
+        const mlbGameday = `https://www.mlb.com/gameday/${game.gamePk}`;
+        const started = game.state === 'live' || game.state === 'delay-live' || game.state === 'final' || game.state === 'warmup';
+        // MLB.TV's /tv/g<gamePk> player says "not available" for winter games; their streams
+        // are featured MLB.TV videos — openGameUrl resolves this to the game's own video
+        if (linkType === 'tv' && started && !NO_STREAM_LEAGUE_IDS.includes(game.isWinter)) return WINTER_STREAMS_URL;
+        if (linkType === 'custom' && started && customUrl) return customUrl;
+        return mlbGameday;
+    }
+    // A postponed (or suspended, pending makeup) game often gets its gamePk reassigned to
+    // a new date behind the scenes. MLB.com's Gameday redirects cleanly to the new page,
+    // but MiLB.com's site gets stuck in a redirect loop trying to resolve the old link —
+    // so instead of the specific /gameday/ page, send to our tracked team's schedule page.
+    if (game.state === 'ppd' || game.state === 'susp') {
+        // AFL clubs have no MiLB.com club pages — use the league schedule instead
+        if (game.isAFL) return AFL_SCHEDULE_URL;
+        const ourClubSlug = (teamId && Number(teamId) === game.homeId) ? game.homeClubSlug
+                          : (teamId && Number(teamId) === game.awayId) ? game.awayClubSlug
+                          : (game.awayClubSlug || game.homeClubSlug);
+        return ourClubSlug ? `https://www.milb.com/${ourClubSlug}/schedule` : 'https://www.milb.com';
+    }
+    // Gameday URL — suffix matches game state
+    const suffix = (game.state === 'live' || game.state === 'delay-live') ? 'live'
+                 : game.state === 'final' ? 'final'
+                 : 'preview';
+    const away = game.awaySlug || 'away';
+    const home = game.homeSlug || 'home';
+    const gamedayUrl = `https://www.milb.com/gameday/${away}-vs-${home}/${game.gameDate}/${game.gamePk}/${suffix}`;
+    if (linkType === 'tv') {
+        // Only send to the live stream once the game has actually started (or is in Warmup,
+        // which MiLB.tv already carries as pre-game coverage) — checking elapsed time against
+        // the scheduled start breaks down on a rain delay, where the clock passes first pitch
+        // but the game (and stream) hasn't begun yet.
+        const gameStarted = game.state === 'live' || game.state === 'delay-live' || game.state === 'final' || game.state === 'warmup';
+        if (!gameStarted) {
+            return gamedayUrl;
+        }
+        if (game.isAFL) return AFL_STREAMS_URL;
+        return `https://www.milb.com/live-stream-games/g${game.gamePk}`;
+    }
+    if (linkType === 'custom') {
+        // Same pattern as the MiLB.tv option: Gameday until the game actually starts (or is in
+        // Warmup), then the user's own link — e.g. a regional sports network's live-game page.
+        // Also falls back to Gameday if no URL has been configured yet, so the key never
+        // opens a blank tab.
+        const gameStarted = game.state === 'live' || game.state === 'delay-live' || game.state === 'final' || game.state === 'warmup';
+        if (!gameStarted || !customUrl) {
+            return gamedayUrl;
+        }
+        return customUrl;
+    }
+    return gamedayUrl;
+}
+
+// Opens the key's link. For an AFL game that has started, the stream option would
+// otherwise land on the league's live-streams hub — try to resolve that game's own
+// stream page first, and fall back to the hub if anything doesn't check out.
+async function openGameUrl(game, linkType, cfg, why) {
+    let url = buildGameUrl(game, linkType, cfg && cfg.teamId, cfg && cfg.customUrl);
+    if (url === AFL_STREAMS_URL) {
+        try { url = (await resolveAflStreamUrl(game)) || AFL_STREAMS_URL; }
+        catch (e) { log('AFL stream lookup failed:', e.message); url = AFL_STREAMS_URL; }
+    }
+    if (url === WINTER_STREAMS_URL) {
+        try { url = (await resolveWinterStreamUrl(game)) || WINTER_STREAMS_URL; }
+        catch (e) { log('Winter stream lookup failed:', e.message); url = WINTER_STREAMS_URL; }
+    }
+    log(why + ' — opening URL:', url);
+    ws.send(JSON.stringify({ event: 'openUrl', payload: { url } }));
+}
+
+// ── AFL per-game streams ──────────────────────────────────────────────────────
+// Each AFL stream is an MLB.com video, /video/live-fall-league-<away>-<home>-<id>
+// (doubleheaders add -1/-2 before the id). The id is an arbitrary CMS number — not
+// the gamePk, and not in the Stats API — so we read it off the live-streams hub,
+// which lists only the current day's games as "video-player" slots (the archive is
+// separate). The video page's title carries the game date ("… | 10/03/2026"), which
+// we check so a stale slot for the same matchup can't send you to an old game.
+// Found links are cached per game; misses are retried after 2 minutes.
+const aflStreamCache = new Map();   // gamePk|label -> { url, at } (url null = miss)
+const AFL_MISS_RETRY_MS = 2 * 60 * 1000;
+
+function httpGetText(url, timeoutMs = 6000) {
+    return new Promise((resolve, reject) => {
+        const req = https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (StreamDeckMLBScores)' } }, res => {
+            if (res.statusCode !== 200) { res.resume(); return resolve(null); }
+            let body = '';
+            res.setEncoding('utf8');
+            res.on('data', c => body += c);
+            res.on('end', () => resolve(body));
+        });
+        req.on('error', reject);
+        req.setTimeout(timeoutMs, () => { req.destroy(); reject(new Error('timeout ' + url)); });
+    });
+}
+
+async function resolveAflStreamUrl(game) {
+    const [awayAbbr, homeAbbr] = String(game.matchup || '').split(' @ ');
+    if (!awayAbbr || !homeAbbr || !game.gamePk) return null;
+    const dh  = game.gameLabel === 'G1' ? '1' : game.gameLabel === 'G2' ? '2' : null;
+    const key = game.gamePk + '|' + (dh || '');
+    const hit = aflStreamCache.get(key);
+    if (hit && (hit.url || Date.now() - hit.at < AFL_MISS_RETRY_MS)) return hit.url;
+
+    let url = null;
+    const hub = await httpGetText(AFL_STREAMS_URL);
+    if (hub) {
+        const prefix = 'live-fall-league-' + awayAbbr.toLowerCase() + '-' + homeAbbr.toLowerCase() + '-';
+        const slugs  = [...hub.matchAll(/"type":"video-player","slug":"(live-fall-league-[a-z0-9-]+)"/g)]
+                           .map(m => m[1]).filter(sl => sl.startsWith(prefix));
+        const want   = dh ? new RegExp('^' + dh + '-\\d+$') : /^\d+$/;
+        const slug   = slugs.find(sl => want.test(sl.slice(prefix.length))) || slugs[0];
+        if (slug) {
+            const page  = await httpGetText('https://www.mlb.com/video/' + slug);   // null = not live yet (404)
+            const m     = page && page.match(/og:title" content="[^"]*\| (\d{2})\/(\d{2})\/(\d{4})"/);
+            const date  = m ? m[3] + '/' + m[1] + '/' + m[2] : null;               // -> YYYY/MM/DD
+            // The title date has been seen both as the game's local date (11/03 for a 01:30Z start) and as the
+            // UTC date, so accept either. The hub only lists today's slots, so a stale same-matchup slot is unlikely.
+            const startUtc = game.startUtc ? new Date(game.startUtc) : null;
+            const okDates  = [game.gameDate];
+            if (startUtc && !isNaN(startUtc)) okDates.push(startUtc.toISOString().slice(0, 10).replace(/-/g, '/'));
+            if (okDates.includes(date)) url = 'https://www.mlb.com/video/' + slug;
+            else log('AFL stream:', slug, 'date', date, '!= game', okDates.join(' / '));
+        } else {
+            log('AFL stream: no hub slot for', prefix);
+        }
+    }
+    aflStreamCache.set(key, { url, at: Date.now() });
+    return url;
+}
+
+// ── Winter league per-game streams (LMP / LIDOM on MLB.TV) ────────────────────
+// Each stream is an MLB.TV video, /tv/shows/p/mlbtv-featured-svod-video-list/s/<slug>
+// (e.g. lmp-live-charros-vs-jaguares-250900). The slug's number is a CMS id and the
+// names aren't consistent, but MLB's CMS feed behind that list tags every video with
+// its game ("gamepk-850558"), so we match on the gamePk. The feed (~90 KB, newest
+// first) is only fetched on a stream press for a game that has started. Hits are
+// cached per game; misses are retried after 2 minutes; any failure → the list page.
+const WINTER_STREAMS_FEED = 'https://dapi.cms.mlbinfra.com/v2/content/en-us/sel-mlbtv-featured-svod-video-list';
+const winterStreamCache   = new Map();   // gamePk -> { url, at } (url null = miss)
+
+async function resolveWinterStreamUrl(game) {
+    if (!game.gamePk) return null;
+    const hit = winterStreamCache.get(game.gamePk);
+    if (hit && (hit.url || Date.now() - hit.at < AFL_MISS_RETRY_MS)) return hit.url;
+    let url = null;
+    const body = await httpGetText(WINTER_STREAMS_FEED);
+    if (body) {
+        const want = 'gamepk-' + game.gamePk;
+        const item = (JSON.parse(body).items || []).find(it => (it.tags || []).some(t => t.slug === want));
+        if (item && item.slug) url = 'https://www.mlb.com/tv/shows/p/mlbtv-featured-svod-video-list/s/' + item.slug;
+        else log('Winter stream: no video tagged', want);
+    }
+    winterStreamCache.set(game.gamePk, { url, at: Date.now() });
+    return url;
+}
+
 // ── MLB Stats API ─────────────────────────────────────────────────────────────
+// 11–14 Triple-A … Single-A, 16 Rookie (ACL / FCL / DSL), 17 fall & winter leagues,
+// 22 summer leagues (MLB Draft League, Cape Cod, Appalachian — sport 22 is "College",
+// but we always query by teamId, so only the tracked club's games come back)
+const SPORT_IDS   = '11,12,13,14,16,17,22';
+const AFL_LEAGUE_ID = 119;
+// Caribbean / Mexican winter leagues, also in sport 17 (added 1.0.37.0):
+// 131 Dominican (LIDOM), 132 Mexican Pacific (LMP), 135 Venezuela (LVBP).
+// MLB.com Gameday covers their games (/gameday/<gamePk> redirects to the full page);
+// LMP and LIDOM stream on MLB.TV as featured videos (see WINTER_STREAMS_URL). No MiLB.com pages, no parent orgs.
+// Leagues linked through MLB.com Gameday (/gameday/<gamePk>) instead of MiLB.com's
+// slug pages: the winter leagues, the Caribbean Series (162), Rookie ball (121 ACL,
+// 124 FCL, 130 DSL — no MiLB.com club pages for the postponed-game fallback) and the
+// summer leagues (5536 MLB Draft League, 565 Cape Cod, 120 Appalachian), added 1.0.39.0.
+// 133 Puerto Rico and 595 Australia added in 2.0 (no stream link yet: Gameday and Custom Link only).
+const WINTER_LEAGUE_IDS = [131, 132, 135, 133, 595, 162, 121, 124, 130, 5536, 565, 120];
+// isWinter holds the league id (truthy) so links can tell the leagues apart
+const isWinterLeague = id => WINTER_LEAGUE_IDS.includes(id) ? id : false;
+// Leagues with no stream we can open — the stream option opens Gameday instead:
+// Venezuela, Puerto Rico and Australia (no stream link yet), the Caribbean Series (MLB Network TV), Rookie ball and the summer leagues
+const NO_STREAM_LEAGUE_IDS = [135, 133, 595, 162, 121, 124, 130, 5536, 565, 120];
+const WINTER_STREAMS_URL = 'https://www.mlb.com/tv/shows/mlbtv-featured-svod-video-list';
+const AFL_SCHEDULE_URL = 'https://www.mlb.com/arizona-fall-league/schedule';
+// AFL games stream free on MLB.com, not MiLB.tv. Each stream is a CMS video
+// (e.g. /video/live-fall-league-gdd-mss-193557) whose ID isn't tied to the gamePk
+// and isn't exposed by the Stats API, so we open the league's stream hub instead.
+const AFL_STREAMS_URL  = 'https://www.mlb.com/arizona-fall-league/live-streams';
 // "Today" as YYYY-MM-DD. The schedule's dates are US dates, so "today" is read
 // in America/New_York rather than from the host clock — a viewer in London or
 // Tokyo would otherwise ask for tomorrow's slate while tonight's games were
@@ -642,20 +910,33 @@ function addDays(ymd, n) {
 // If the feed stops answering, the last good response for that same URL keeps
 // driving the keys for up to STALE_MAX_MS instead of dropping every key to
 // "Err", and a small amber dot marks them as not live (isStale(), drawn by
-// setButton). Failures with nothing usable cached still reject, as before.
+// setKey). Failures with nothing usable cached still reject, as before.
+//
+// The dot is per key: each key remembers which URLs its last refresh read
+// (keyDeps), and draws the dot only if one of those is in jsonFails. A slow
+// league or a failing team URL marks only the keys that depend on it.
 const FETCH_TTL_MS = 20_000;
 const STALE_MAX_MS = 10 * 60_000;
 const jsonCache = new Map(); // url -> { at, promise }
 const jsonGood  = new Map(); // url -> { at, data }   last good response
 const jsonFails = new Map(); // url -> time it started failing (served stale since)
 
-function isStale() {
+const depScope = new AsyncLocalStorage();   // the Set a refresh is collecting URLs into
+const keyDeps  = new Map();                 // context -> Set of URLs the key's last refresh read
+
+function isStale(context) {
     const now = Date.now();
     for (const [u, t] of jsonFails) if (now - t > STALE_MAX_MS) jsonFails.delete(u);
-    return jsonFails.size > 0;
+    if (jsonFails.size === 0) return false;
+    const deps = keyDeps.get(context);
+    if (!deps) return false;
+    for (const u of deps) if (jsonFails.has(u)) return true;
+    return false;
 }
 
 function cachedJson(url, ttlMs = FETCH_TTL_MS) {
+    const scope = depScope.getStore();
+    if (scope) scope.add(url);
     const now = Date.now();
     const hit = jsonCache.get(url);
     if (hit && now - hit.at < ttlMs) return hit.promise;
@@ -685,6 +966,7 @@ function cachedJson(url, ttlMs = FETCH_TTL_MS) {
 // goes quiet, so FETCH_DEADLINE_MS caps the whole request, and the promise
 // settles exactly once whichever way it ends.
 const FETCH_DEADLINE_MS = 20_000;
+const SOCKET_IDLE_MS    = 15_000;   // same idle limit as the NFL / CFB / NBA plugins; the deadline above still caps the whole request
 
 function httpsGetJson(url) {
     return new Promise((resolve, reject) => {
@@ -703,26 +985,21 @@ function httpsGetJson(url) {
 
         deadline = setTimeout(() => { req.destroy(); settle(reject, new Error('Request timed out')); }, FETCH_DEADLINE_MS);
         req.on('error', e => settle(reject, e));
-        req.setTimeout(10_000, () => { req.destroy(); settle(reject, new Error('Request timed out')); });
+        req.setTimeout(SOCKET_IDLE_MS, () => { req.destroy(); settle(reject, new Error('Request timed out')); });
     });
 }
 
 const NEXT_GAME_TTL_MS = 5 * 60_000; // off-day lookups: the schedule rarely changes, so don't ask every 30 s per key
 
-const SCHEDULE_URL = 'https://statsapi.mlb.com/api/v1/schedule';
-
-// One request for the whole day's slate (all 30 teams) shared by every key,
-// instead of one request per team. Each key then picks out its own team's
-// games, in the same shape the per-team query used to return.
-async function fetchTodayGame(teamId) {
+// ── MLB clubs: ONE all-teams schedule request shared by every key (as in Live MLB Scores 1.0.33) ──
+async function fetchTodayMlbGame(teamId) {
     const date = scheduleDate();
     const data = await cachedJson(SCHEDULE_URL + '?sportId=1&date=' + date + '&hydrate=linescore');
-    const game = parseSchedule(teamSlice(data, teamId));
+    const game = parseSchedule(teamSlice(data, teamId), true);
     if (game) return game;
     // No game for this team today — on the All-Star break itself, show the All-Star Game instead
     try { const asg = await fetchAllStarGame(date); if (asg) return asg; } catch (e) { /* fall through to next game */ }
-    // Truly an off day — look ahead to the next scheduled game instead of a dead end
-    try { return await fetchNextGame(teamId, date); } catch (e) { return null; }
+    try { return await fetchNextMlbGame(teamId, date); } catch (e) { return null; }
 }
 
 // The day's schedule reduced to one team's games (a doubleheader keeps both).
@@ -735,25 +1012,90 @@ function teamSlice(data, teamId) {
 }
 
 // All-Star Game uses gameType 'A' and team IDs 159 (AL) / 160 (NL) — same JSON shape as a
-// regular game, so parseSchedule() handles it as-is. Returns null on every non-ASG day.
+// regular game. Returns null on every non-ASG day.
 async function fetchAllStarGame(date) {
-    return parseSchedule(await cachedJson(SCHEDULE_URL + '?sportId=1&date=' + date + '&gameType=A&hydrate=linescore'));
+    return parseSchedule(await cachedJson(SCHEDULE_URL + '?sportId=1&date=' + date + '&gameType=A&hydrate=linescore'), true);
 }
 
-// ── Next scheduled game (shown on off days instead of a dead-end "No Game") ──
-// Looks ahead up to two weeks from the given date for this team's next game.
-async function fetchNextGame(teamId, afterDate) {
+async function fetchNextMlbGame(teamId, afterDate) {
     const url = SCHEDULE_URL + '?sportId=1&teamId=' + teamId +
                 '&startDate=' + addDays(afterDate, 1) + '&endDate=' + addDays(afterDate, 15);
     const data  = await cachedJson(url, NEXT_GAME_TTL_MS);
-    const dates = data?.dates || [];
-    for (const d of dates) {
+    for (const d of (data?.dates || [])) {
         const games = (d.games || []).slice().sort((a, b) => (a.gameNumber || 1) - (b.gameNumber || 1));
         for (const g of games) {
             const homeId = g?.teams?.home?.team?.id;
             const awayId = g?.teams?.away?.team?.id;
             if (!homeId || !awayId) continue;
-            const matchup   = teamAbbr(awayId, g?.teams?.away?.team?.name) + ' @ ' + teamAbbr(homeId, g?.teams?.home?.team?.name);
+            const matchup  = teamAbbr(awayId, g?.teams?.away?.team?.name) + ' @ ' + teamAbbr(homeId, g?.teams?.home?.team?.name);
+            const startISO = g.gameDate || null;
+            const gameDate = d.date ? d.date.replace(/-/g, '/') : '2000/01/01';
+            const time = g.status?.startTimeTBD ? 'TBD' : fmtTime(startISO);
+            return { state: 'nextgame', isMLB: true, matchup, time, homeId, awayId, gamePk: g.gamePk, gameDate, startISO };
+        }
+    }
+    return null;
+}
+
+// Pick which day's games a minor/winter key shows. Normally today (ET, 5 AM rollover). A game that is
+// LIVE in the previous or next schedule date wins: the schedule date is the venue's local date, so
+// the Australian league (evening Sydney = overnight / next-day ET) would otherwise stay hidden until
+// the rollover. The request covers yesterday..tomorrow.
+function pickSlate(data, today) {
+    const dates = data?.dates || [];
+    const byDate = d => dates.find(x => x.date === d);
+    // A suspended game keeps abstractGameState "Live" (in its original bucket and in the resume date's) until
+    // it resumes, so it must not count, or it would hijack the key for days.
+    const live  = d => !!d && (d.games || []).some(g => g?.status?.abstractGameState === 'Live' && !(g.status.detailedState || '').startsWith('Suspended'));
+    const cur   = byDate(today);
+    const use   = live(cur) ? cur
+                : live(byDate(addDays(today, -1))) ? byDate(addDays(today, -1))
+                : live(byDate(addDays(today, 1)))  ? byDate(addDays(today, 1))
+                : cur;
+    return { ...(data || {}), dates: use ? [use] : [] };
+}
+
+// Dispatch on the key's team: MLB club or minor/winter/etc. team
+async function fetchTodayGame(cfg) {
+    if (isMlbTeamId(cfg.teamId)) return fetchTodayMlbGame(cfg.teamId);
+    return fetchTodayMinorGame(cfg.teamId);
+}
+
+async function fetchTodayMinorGame(teamId) {
+    const date = scheduleDate();
+    // sportId=11,12,13,14 covers Triple-A, Double-A, High-A, Single-A; 17 adds the
+    // Arizona Fall League and the Mexican / Venezuelan / Dominican winter leagues
+    // (sport 17 is all winter leagues; we query by teamId, so only the tracked club comes back)
+    const url = 'https://statsapi.mlb.com/api/v1/schedule' +
+                '?sportId=' + SPORT_IDS + '&startDate=' + addDays(date, -1) + '&endDate=' + addDays(date, 1) +
+                '&teamId=' + teamId +
+                '&hydrate=linescore,team';
+
+    const game = parseSchedule(pickSlate(await cachedJson(url), date));
+    if (game) return game;
+    // Truly an off day — look ahead to the next scheduled game instead of a dead end
+    try { return await fetchNextGame(teamId, date); } catch (e) { return null; }
+}
+
+// ── Next scheduled game (shown on off days instead of a dead-end "No Game") ──
+// Looks ahead up to two weeks from the given date for this team's next game.
+async function fetchNextGame(teamId, afterDate) {
+    const url = 'https://statsapi.mlb.com/api/v1/schedule' +
+                '?sportId=' + SPORT_IDS + '&teamId=' + teamId +
+                '&startDate=' + addDays(afterDate, 1) + '&endDate=' + addDays(afterDate, 15) +
+                '&hydrate=team';
+
+    const data  = await cachedJson(url, NEXT_GAME_TTL_MS);
+    const dates = data?.dates || [];
+    for (const d of dates) {
+        const games = (d.games || []).slice().sort((a, b) => (a.gameNumber || 1) - (b.gameNumber || 1));
+        for (const g of games) {
+            const homeAbbr = g?.teams?.home?.team?.abbreviation || 'HME';
+            const awayAbbr = g?.teams?.away?.team?.abbreviation || 'AWY';
+            const homeName = g?.teams?.home?.team?.teamName;
+            const awayName = g?.teams?.away?.team?.teamName;
+            if (!homeName || !awayName) continue;
+            const matchup   = awayAbbr + ' @ ' + homeAbbr;
             const startISO  = g.gameDate || null;
             // Use the schedule bucket's official date, not the game's UTC timestamp —
             // slicing the ISO string rolls to the next day for any West Coast/Mountain
@@ -761,22 +1103,48 @@ async function fetchNextGame(teamId, afterDate) {
             const gameDate  = d.date ? d.date.replace(/-/g, '/') : '2000/01/01';
             const startTBD  = g.status?.startTimeTBD || false;
             const time = startTBD ? 'TBD' : fmtTime(startISO);
-            return { state: 'nextgame', matchup, time, homeId, awayId, gamePk: g.gamePk, gameDate, startISO };
+            return {
+                state: 'nextgame', matchup, startISO, time, gamePk: g.gamePk, gameDate,
+                isWinter: isWinterLeague(g?.teams?.home?.team?.league?.id),
+                homeSlug: toSlug(homeName), awaySlug: toSlug(awayName),
+            };
         }
     }
     return null;
 }
 
-function parseSchedule(data) {
+// Convert a MiLB teamName (mascot only, e.g. "Jumbo Shrimp") to a URL slug
+function toSlug(name) {
+    return (name || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+}
+
+// Team facts for one side of a game. MLB clubs come from the fixed TEAMS table (no team hydrate
+// needed); everything else reads the hydrated team record.
+function teamInfo(t, mlb) {
+    if (mlb) {
+        const id = t?.id;
+        return { abbr: teamAbbr(id, t?.name), name: teamName(id), slug: teamSlug(id), clubSlug: '', parentOrgId: 0 };
+    }
+    return { abbr: t?.abbreviation || '', name: t?.teamName || '', slug: toSlug(t?.teamName),
+             clubSlug: toSlug(t?.shortName), parentOrgId: t?.parentOrgId || t?.parentTeamId };
+}
+
+function parseSchedule(data, mlb) {
+    const game = parseScheduleCore(data, !!mlb);
+    if (game) { game.isMLB = !!mlb; if (game.otherGame) game.otherGame.isMLB = !!mlb; }
+    return game;
+}
+
+function parseScheduleCore(data, mlb) {
     try {
-        if (!data?.dates?.length) { log('API: no dates (off day)'); return null; }
+        if (!data?.dates?.length) { logQuiet('api:nodates', 'API: no dates (off day)'); return null; }
 
         const games = data.dates[0].games;
-        if (!games?.length) { log('API: no games'); return null; }
+        if (!games?.length) { logQuiet('api:nogames', 'API: no games'); return null; }
 
         // The schedule bucket's official date — use this for Gameday URLs, not the game's
         // raw UTC timestamp, which rolls to the next calendar day for West Coast/Mountain
-        // evening games (e.g. 7:10pm MT = 1:10am UTC the following day).
+        // evening games (e.g. 7:05pm MT = 1:05am UTC the following day).
         const officialDate = data.dates[0].date ? data.dates[0].date.replace(/-/g, '/') : '2000/01/01';
 
         // Sort by gameNumber so doubleheaders are always Game 1 first, Game 2 second
@@ -801,23 +1169,29 @@ function parseSchedule(data) {
         // Build a summary of the OTHER game for the doubleheader toggle
         let otherGame = null;
         if (isDoubleheader) {
-            const og        = games[gameIndex === 0 ? 1 : 0];
-            const ogLabel   = gameIndex === 0 ? 'G2' : 'G1';
-            const ogStatus  = og?.status?.abstractGameState;
-            const ogDetail  = og?.status?.detailedState || '';
-            const ogHomeId  = og?.teams?.home?.team?.id;
-            const ogAwayId  = og?.teams?.away?.team?.id;
-            const ogHomeAbbr = teamAbbr(ogHomeId);
-            const ogAwayAbbr = teamAbbr(ogAwayId);
-            const ogLs      = og.linescore;
+            const og         = games[gameIndex === 0 ? 1 : 0];
+            const ogLabel    = gameIndex === 0 ? 'G2' : 'G1';
+            const ogStatus   = og?.status?.abstractGameState;
+            const ogDetail   = og?.status?.detailedState || '';
+            const ogHome     = teamInfo(og?.teams?.home?.team, mlb);
+            const ogAway     = teamInfo(og?.teams?.away?.team, mlb);
+            const ogHomeAbbr = ogHome.abbr || 'HME';
+            const ogAwayAbbr = ogAway.abbr || 'AWY';
+            const ogLs       = og.linescore;
             // Common fields needed by buildGameUrl so single-click opens the right game
-            const ogBase    = {
-                gameLabel: ogLabel,
-                gamePk:    og.gamePk,
-                gameDate:  officialDate,
-                startISO:  og.gameDate || null,
-                homeId:    ogHomeId,
-                awayId:    ogAwayId,
+            const ogBase     = {
+                gameLabel:    ogLabel,
+                gamePk:       og.gamePk,
+                gameDate:     officialDate,
+                startUtc:     og.gameDate || null,
+                homeSlug:     ogHome.slug,
+                awaySlug:     ogAway.slug,
+                homeClubSlug:  ogHome.clubSlug,
+                awayClubSlug:  ogAway.clubSlug,
+                homeId:       og?.teams?.home?.team?.id,
+                awayId:       og?.teams?.away?.team?.id,
+                isAFL:        og?.teams?.home?.team?.league?.id === AFL_LEAGUE_ID,
+                isWinter:     isWinterLeague(og?.teams?.home?.team?.league?.id),
             };
             if (ogDetail.startsWith('Cancel')) {
                 otherGame = { ...ogBase, state: 'ppd', canceled: true };
@@ -846,7 +1220,7 @@ function parseSchedule(data) {
             }
         }
 
-        const status   = g?.status?.abstractGameState; // 'Preview' | 'Live' | 'Final'
+        const status   = g?.status?.abstractGameState;
         const detailed = g?.status?.detailedState || '';
         if (!status) { log('API: missing status'); return null; }
 
@@ -854,23 +1228,40 @@ function parseSchedule(data) {
         const awayId = g?.teams?.away?.team?.id;
         if (!homeId || !awayId) { log('API: missing team IDs'); return null; }
 
-        const homeAbr  = teamAbbr(homeId, g?.teams?.home?.team?.name);
-        const awayAbr  = teamAbbr(awayId, g?.teams?.away?.team?.name);
-        const matchup  = awayAbr + ' @ ' + homeAbr;
-        const gamePk   = g.gamePk;
-        const gameDate = officialDate;
-        const ls       = g.linescore;
-        const startISO = g.gameDate || null; // full ISO datetime, used for MLB.tv pre-game check
-        const startTBD = g.status?.startTimeTBD || false;
+        // Abbreviations, names, slugs, and parent org IDs from hydrated team data
+        const homeT           = teamInfo(g?.teams?.home?.team, mlb);
+        const awayT           = teamInfo(g?.teams?.away?.team, mlb);
+        const homeAbbr        = homeT.abbr || 'HME';
+        const awayAbbr        = awayT.abbr || 'AWY';
+        const homeName        = homeT.name || homeAbbr;
+        const awayName        = awayT.name || awayAbbr;
+        const homeSlug        = homeT.slug;
+        const awaySlug        = awayT.slug;
+        // MiLB.com's club schedule pages use a slug based on the team's brand/region name
+        // (shortName, e.g. "somerset", "hudson-valley") — NOT locationName, which is the
+        // literal city the team plays in and can differ from the brand (Somerset Patriots
+        // play in Bridgewater, Hudson Valley Renegades play in Wappingers Falls). Needed
+        // for the postponed-game fallback link below.
+        const homeClubSlug     = homeT.clubSlug;
+        const awayClubSlug     = awayT.clubSlug;
+        const homeParentOrgId = homeT.parentOrgId;
+        const awayParentOrgId = awayT.parentOrgId;
+        const matchup     = awayAbbr + ' @ ' + homeAbbr;
+        const gamePk      = g.gamePk;
+        const gameDate    = officialDate;
+        const ls          = g.linescore;
+        const startTBD    = g.status?.startTimeTBD || false;
+        const isAFL       = g?.teams?.home?.team?.league?.id === AFL_LEAGUE_ID;
+        const isWinter    = isWinterLeague(g?.teams?.home?.team?.league?.id);
 
-        log('API:', status, detailed, matchup, 'pk=' + gamePk, gameLabel || '');
+        logQuiet('api:' + gamePk, 'API:', status, detailed, matchup, 'pk=' + gamePk, gameLabel || '');
 
         // Special states — check detailedState first so they override abstractGameState
         // A rainout MLB cancels outright comes back as abstractGameState 'Final' with
         // detailedState 'Cancelled' — catch it before the Final branch turns it into a 0-0 final.
-        if (detailed.startsWith('Cancel'))            return { state: 'ppd',   canceled: true,   matchup, gamePk, gameDate, startISO, homeId, awayId, gameLabel, otherGame };
-        if (detailed.startsWith('Postponed'))         return { state: 'ppd',   matchup, gamePk, gameDate, startISO, homeId, awayId, gameLabel, otherGame };
-        if (detailed.startsWith('Suspended'))         return { state: 'susp',  matchup, gamePk, gameDate, startISO, homeId, awayId, gameLabel, otherGame };
+        if (detailed.startsWith('Cancel'))            return { state: 'ppd',   canceled: true,   matchup, gamePk, gameDate, startUtc: g.gameDate || null, homeSlug, awaySlug, homeClubSlug, awayClubSlug, homeId, awayId, isAFL, isWinter, gameLabel, otherGame };
+        if (detailed.startsWith('Postponed'))         return { state: 'ppd',   matchup, gamePk, gameDate, startUtc: g.gameDate || null, homeSlug, awaySlug, homeClubSlug, awayClubSlug, homeId, awayId, isAFL, isWinter, gameLabel, otherGame };
+        if (detailed.startsWith('Suspended'))         return { state: 'susp',  resumed: !!g.resumedFrom, time: startTBD ? 'TBD' : fmtTime(g.gameDate), startISO: g.gameDate || null, matchup, gamePk, gameDate, startUtc: g.gameDate || null, homeSlug, awaySlug, homeClubSlug, awayClubSlug, homeId, awayId, isAFL, isWinter, gameLabel, otherGame };
         if (detailed.toLowerCase().includes('delay')) {
             // Distinguish a pre-game delay (e.g. "Delayed Start", status still "Preview")
             // from a mid-game delay (status "Live"). MLB's linescore pre-populates a "Top 1"
@@ -880,42 +1271,42 @@ function parseSchedule(data) {
             if (status === 'Live') {
                 const homeRuns = ls?.teams?.home?.runs ?? 0;
                 const awayRuns = ls?.teams?.away?.runs ?? 0;
-                return { state: 'delay-live', matchup, homeAbbr: homeAbr, awayAbbr: awayAbr, homeId, awayId, homeRuns, awayRuns, gamePk, gameDate, startISO, gameLabel, otherGame };
+                return { state: 'delay-live', matchup, homeAbbr, awayAbbr, homeSlug, awaySlug, homeId, awayId, homeRuns, awayRuns, gamePk, gameDate, startUtc: g.gameDate || null, homeName, awayName, homeParentOrgId, awayParentOrgId, isAFL, isWinter, gameLabel, otherGame };
             }
-            return { state: 'delay', matchup, time: startTBD ? 'TBD' : fmtTime(startISO), gamePk, gameDate, startISO, homeId, awayId, gameLabel, otherGame };
+            return { state: 'delay', matchup, time: startTBD ? 'TBD' : fmtTime(g.gameDate), startISO: g.gameDate || null, gamePk, gameDate, startUtc: g.gameDate || null, homeSlug, awaySlug, homeId, awayId, isAFL, isWinter, gameLabel, otherGame };
         }
 
         if (status === 'Preview') {
             const time = startTBD ? 'TBD' : fmtTime(g.gameDate);
-            return { state: 'preview', matchup, time, gamePk, gameDate, startISO, homeId, awayId, gameLabel, otherGame };
+            return { state: 'preview', matchup, time, startISO: g.gameDate || null, gamePk, gameDate, startUtc: g.gameDate || null, homeSlug, awaySlug, homeId, awayId, homeName, awayName, homeParentOrgId, awayParentOrgId, isAFL, isWinter, gameLabel, otherGame };
         }
 
         // The API flips abstractGameState to "Live" during pre-game warmups before first pitch.
         // Keep showing the start time until play actually begins.
         if (detailed === 'Pre-Game') {
-            const time = startTBD ? 'TBD' : fmtTime(startISO);
-            return { state: 'preview', matchup, time, gamePk, gameDate, startISO, homeId, awayId, gameLabel, otherGame };
+            const time = startTBD ? 'TBD' : fmtTime(g.gameDate);
+            return { state: 'preview', matchup, time, startISO: g.gameDate || null, gamePk, gameDate, startUtc: g.gameDate || null, homeSlug, awaySlug, homeId, awayId, homeName, awayName, homeParentOrgId, awayParentOrgId, isAFL, isWinter, gameLabel, otherGame };
         }
         // Warmup means the game (possibly just coming out of a rain delay) is about to start —
         // the original scheduled time is stale at this point, so label it explicitly instead
         // of showing a clock that's already passed.
         if (detailed === 'Warmup') {
-            const time = startTBD ? 'TBD' : fmtTime(startISO);
-            return { state: 'warmup', matchup, time, gamePk, gameDate, startISO, homeId, awayId, gameLabel, otherGame };
+            const time = startTBD ? 'TBD' : fmtTime(g.gameDate);
+            return { state: 'warmup', matchup, time, startISO: g.gameDate || null, gamePk, gameDate, startUtc: g.gameDate || null, homeSlug, awaySlug, homeId, awayId, homeName, awayName, homeParentOrgId, awayParentOrgId, isAFL, isWinter, gameLabel, otherGame };
         }
 
         const homeRuns = ls?.teams?.home?.runs ?? 0;
         const awayRuns = ls?.teams?.away?.runs ?? 0;
 
         if (status === 'Final') {
-            return { state: 'final', matchup, homeAbbr: homeAbr, awayAbbr: awayAbr, homeId, awayId, homeRuns, awayRuns, gamePk, gameDate, startISO, gameLabel, otherGame };
+            return { state: 'final', matchup, homeAbbr, awayAbbr, homeSlug, awaySlug, homeId, awayId, homeRuns, awayRuns, gamePk, gameDate, startUtc: g.gameDate || null, homeName, awayName, homeParentOrgId, awayParentOrgId, isAFL, isWinter, gameLabel, otherGame };
         }
 
         // Live
         const inn  = ls?.currentInning || '?';
         const half = ls?.inningHalf === 'Top' ? '\u25b2' : '\u25bc';
 
-        return { state: 'live', matchup, homeAbbr: homeAbr, awayAbbr: awayAbr, homeId, awayId, homeRuns, awayRuns, inn, half, outs: ls?.outs ?? 0, gamePk, gameDate, startISO, gameLabel, otherGame };
+        return { state: 'live', matchup, homeAbbr, awayAbbr, homeSlug, awaySlug, homeId, awayId, homeRuns, awayRuns, inn, half, outs: ls?.outs ?? 0, gamePk, gameDate, startUtc: g.gameDate || null, homeName, awayName, homeParentOrgId, awayParentOrgId, isAFL, isWinter, gameLabel, otherGame };
 
     } catch (e) {
         log('parseSchedule error:', e.message);
@@ -928,7 +1319,7 @@ function fmtTime(iso) {
     catch (e) { return '?:??'; }
 }
 
-// ── SVG button renderer ───────────────────────────────────────────────────────
+// ── SVG key renderer ───────────────────────────────────────────────────────
 function escXml(s) {
     return String(s).replace(/[&<>"']/g, c =>
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
@@ -938,7 +1329,7 @@ function escXml(s) {
 // into a CSS color the SVG <rect> can use directly. Falls back to plain black
 // for anyone who hasn't set a custom background — same look as before this
 // feature existed. This is deliberately only applied to the steady-state
-// button (pre-game/live/final/err) — the score-flash and end-of-game
+// key (pre-game/live/final/err) — the score-flash and end-of-game
 // fireworks effects keep using their own dynamic colors on top of it.
 function resolveBgColor(cfg) {
     if (!cfg || !cfg.bgColor) return { fill: 'black', opacity: 1 };
@@ -949,7 +1340,6 @@ function resolveBgColor(cfg) {
     return { fill: '#' + hex, opacity };
 }
 
-// Accepts an array of strings (auto-sized) or { text, fs } objects (explicit size).
 // ── Stacked pregame layout ────────────────────────────────────────────────────
 // Every pregame / upcoming-game key, on team keys and Scoreboard keys alike:
 //   AWAY            (16)
@@ -1095,7 +1485,6 @@ function makeFireworks(frame, winnerColor, winnerName) {
     const COLORS = [winnerColor, '#FFD700', '#FFFFFF'];
 
     let circles = '';
-    // Overlapping burst waves every 4 frames across the full animation
     [0, 4, 8, 12, 16, 20, 24, 28, 32, 36].forEach((startFrame, burstIdx) => {
         const f = frame - startFrame;
         if (f < 0 || f >= 6) return;
@@ -1112,11 +1501,8 @@ function makeFireworks(frame, winnerColor, winnerName) {
         }
     });
 
-    // Throbbing text — alternates every 2 frames
     const throb   = Math.floor(frame / 2) % 2 === 0;
     const winSize = throb ? 20 : 16;
-
-    // Auto-size team name to fit the button width
     let nameSize = 13;
     while (nameSize > 7 && winnerName.length * nameSize * 0.62 > 62) nameSize--;
     const nameY = throb ? 25 : 27;
@@ -1147,20 +1533,21 @@ async function playFireworks(context, winnerName, winnerColor) {
     } finally {
         flashing.delete(context);
         lastRender.delete(context);
-        if (!instances.has(context)) return; // key left the screen mid-animation — nothing to redraw
-        refreshButton(context);
+        if (!keyAlive(context)) return; // key left the screen mid-animation — nothing to redraw
+        if (boardKeys.has(context)) renderBoardKey(context, boardSlotGame.get(context) || null);
+        else refreshKey(context);
     }
 }
 
 // bgColor may be a plain CSS color string (flash colors, 'black') or a
 // { fill, opacity } object (resolveBgColor's output) — normalized to the
 // latter here so makeImage always gets a fill string + numeric opacity.
-function setButton(context, lines, lineSpacing, bgColor, force) {
+function setKey(context, lines, lineSpacing, bgColor, force) {
     const bg = (bgColor && typeof bgColor === 'object') ? bgColor : { fill: bgColor || 'black', opacity: 1 };
-    const stale = isStale();
+    const stale = isStale(context);
     const key = JSON.stringify({ lines, bg, stale });
     if (!force) {
-        if (lastRender.get(context) === key) return; // skip if unchanged
+        if (lastRender.get(context) === key) return;
         lastRender.set(context, key);
     }
     ws.send(JSON.stringify({ event: 'setImage', context, payload: { image: makeImage(lines, lineSpacing, bg.fill, bg.opacity, stale), target: 0 } }));
@@ -1183,24 +1570,386 @@ function runsCardLines(abbr, runs) {
 
 // Score flash: 5 solid blinks of the color with no text (2.0 s), then the
 // runs card for 3 s if there is one, then back to the score.
-async function flashButton(context, color, lines, spacing, restColor = 'black', card = null) {
+async function flashKey(context, color, lines, spacing, restColor = 'black', card = null) {
     if (flashing.has(context)) return;
     flashing.add(context);
     log('→ flash', color, card ? JSON.stringify(card) : '');
     try {
         for (let i = 0; i < 5; i++) {
-            if (!instances.has(context)) return; // key was removed mid-flash
-            setButton(context, [''], spacing, color, true);
+            if (!keyAlive(context)) return; // key was removed mid-flash
+            setKey(context, [''], spacing, color, true);
             await sleep(200);
-            setButton(context, [''], spacing, restColor, true);
+            setKey(context, [''], spacing, restColor, true);
             await sleep(200);
         }
-        if (card && instances.has(context)) {
-            setButton(context, card, 1.3, 'black', true);
+        if (card && keyAlive(context)) {
+            setKey(context, card, 1.3, 'black', true);
             await sleep(RUNS_CARD_MS);
         }
     } finally {
         flashing.delete(context);
-        if (instances.has(context)) setButton(context, lines, spacing, restColor, true);
+        if (keyAlive(context)) setKey(context, lines, spacing, restColor, true);
     }
+}
+
+
+// ── Live MLB Scoreboard ──
+// Same model as the CFB / NHL / NBA Scoreboards:
+//  • Each key picks a level and league (Triple-A → International League, AFL,
+//    Mexico, …). Keys on one deck with the same settings that touch (8
+//    directions) form one board; boards with different settings can sit
+//    side by side, each with its own background color.
+//  • A board shows every game in its league "today" (2am rollover, same as the
+//    team keys) in start-time order; on a day with no games, the next game day
+//    within a week, with the day on each key.
+//  • More games than keys → the last key shows "+N more"; extra keys "No Game".
+//  • Score flash in the scoring team's parent-org color (white for clubs with no
+//    MLB parent) + runs card; fireworks at the final. Per-key memory carries the
+//    gamePk, so a slot moving to another game never false-flashes.
+//  • One schedule request per league per refresh (cached 20 s), shared by all boards.
+const BOARD_ACTION   = 'com.tj.livemlbscores.scoreboard';
+const BOARD_DEFAULTS = { level: '1', leagueId: 0, sortOrder: 'column', finalsLast: false, linkType: 'gameday', bgColor: null, bgOpacity: 100 };
+
+const boardKeys       = new Map(); // context -> { device, coords, settings }
+const boardSlotGame   = new Map(); // context -> game currently in that slot
+const boardMemory     = new Map(); // context -> { gamePk, state, awayRuns, homeRuns, finalAt }
+let   boardOverflow   = new Set();
+let   boardTimer      = null;
+let   boardDebounce   = null;
+
+const keyAlive = ctx => instances.has(ctx) || boardKeys.has(ctx);
+
+function boardCfg(settings) {
+    const s = Object.assign({}, BOARD_DEFAULTS, settings || {});
+    // A brand-new key has no source yet: it stays unset (shows "Select A League") and never joins a
+    // neighbouring board, so adding a key next to an MLB board can't turn it into a copy of that board.
+    s.unset      = !(settings && settings.level);
+    s.leagueId   = parseInt(s.leagueId, 10) || 0;
+    if (s.unset) { s.level = ''; s.leagueId = 0; }
+    else {
+        s.level = String(s.level);
+        if (s.level !== '1' && !s.leagueId) { s.level = '1'; }   // a minor/winter board needs its league; default = all MLB
+        if (s.level === '1') s.leagueId = 0;
+    }
+    s.sortOrder  = s.sortOrder === 'row' ? 'row' : 'column';
+    s.finalsLast = !!s.finalsLast;
+    s.linkType   = s.linkType === 'tv' ? 'tv' : 'gameday';
+    s.bgColor    = /^#[0-9a-fA-F]{6}$/.test(String(s.bgColor || '')) ? s.bgColor : null;
+    s.bgOpacity  = s.bgOpacity != null && !isNaN(Number(s.bgOpacity)) ? Number(s.bgOpacity) : 100;
+    return s;
+}
+const boardSig = st => [st.level, st.leagueId, st.sortOrder, st.finalsLast, st.linkType, st.bgColor || '', st.bgColor ? st.bgOpacity : ''].join('|');
+
+// "+N more" / "No Game" link for a league
+// A league's scores page: MLB, the Arizona Fall League, the winter leagues, or MiLB.com.
+// A specific league links to that league's own schedule; a level with no league named links to the level page.
+// MiLB leagues (mlb.com/milb/scores/<level>/<league>) and levels (…/<level>) were checked 2026-11-06; the short
+// league slug is the one the site recognizes ("international", not "international-league").
+const MILB_LEVEL_PAGE = { '11': 'triple-a', '12': 'double-a', '13': 'high-a', '14': 'single-a', '16': 'rookie' };
+const MILB_LEAGUE_PAGE = {
+    117: 'triple-a/international',    112: 'triple-a/pacific-coast',
+    113: 'double-a/eastern',          111: 'double-a/southern',     109: 'double-a/texas',
+    116: 'high-a/south-atlantic',     118: 'high-a/midwest',        126: 'high-a/northwest',
+    122: 'single-a/carolina',         123: 'single-a/florida-state', 110: 'single-a/california',
+    121: 'rookie/arizona-complex',    124: 'rookie/florida-complex', 130: 'rookie/dominican-summer'
+};
+// Winter, summer college and draft leagues: each league's own site (mlb.com has no page for these).
+const LEAGUE_SITE_PAGE = {
+    131: 'https://lidom.com/estadisticas/calendario/',          // LIDOM
+    132: 'https://www.lmp.mx/calendario',                       // LMP
+    135: 'https://stats.lvbp.com/calendario.php',               // LVBP
+    133: 'https://www.ligapr.com/',                             // Puerto Rico (LBPRC)
+    595: 'https://theabl.com.au/schedule/',                     // ABL
+    162: 'https://www.seriedelcaribe.net/calendario',           // Caribbean Series
+    5536: 'https://www.mlbdraftleague.com/schedule/',           // MLB Draft League
+    120: 'https://www.appyleague.com/schedule/',                // Appalachian League
+    565: 'https://www.capecodleague.com/schedule/'              // Cape Cod League
+};
+function leagueScoresUrl(level, leagueId) {
+    leagueId = Number(leagueId) || 0;
+    if (!leagueId && /^L\d+$/.test(String(level))) leagueId = Number(String(level).slice(1));   // 'L133' → 133
+    if (String(level) === '1' || (!leagueId && !level)) return 'https://www.mlb.com/scores';
+    if (leagueId === AFL_LEAGUE_ID) return AFL_SCHEDULE_URL;
+    if (LEAGUE_SITE_PAGE[leagueId]) return LEAGUE_SITE_PAGE[leagueId];
+    if (MILB_LEAGUE_PAGE[leagueId]) return 'https://www.mlb.com/milb/scores/' + MILB_LEAGUE_PAGE[leagueId];
+    if (MILB_LEVEL_PAGE[String(level)]) return 'https://www.mlb.com/milb/scores/' + MILB_LEVEL_PAGE[String(level)];
+    return 'https://www.milb.com/scores';
+}
+const boardMoreUrl = st => leagueScoresUrl(st.level, st.leagueId);
+
+// "No Game" press on a team key: that team's schedule page (MLB club, MiLB club) or its league's scores page
+function teamSchedulePage(cfg) {
+    cfg = cfg || {};
+    if (isMlbTeamId(cfg.teamId)) {
+        const slug = teamSlug(Number(cfg.teamId));
+        return slug ? 'https://www.mlb.com/' + slug + '/schedule' : 'https://www.mlb.com/schedule';
+    }
+    const lg = Number(cfg.teamLeagueId) || 0;
+    const fullSeason = [11, 12, 13, 14].includes(Number(cfg.sportId));
+    if (fullSeason && cfg.clubSlug) return 'https://www.milb.com/' + cfg.clubSlug + '/schedule';
+    return leagueScoresUrl(cfg.teamLevel || (lg ? 'L' + lg : ''), lg);
+}
+
+function clearBoardMemory(ctx) { keyDeps.delete(ctx); boardMemory.delete(ctx); boardSlotGame.delete(ctx); lastRender.delete(ctx); flashing.delete(ctx); }
+
+function boardBlock(context) {
+    const start = boardKeys.get(context);
+    if (!start || start.settings.unset) return [context];   // an unset key is never part of a board
+    const sig = boardSig(start.settings), out = new Set([context]), queue = [context];
+    while (queue.length) {
+        const k = boardKeys.get(queue.shift());
+        for (const [ctx, o] of boardKeys) {
+            if (out.has(ctx) || o.device !== start.device || boardSig(o.settings) !== sig) continue;
+            if (Math.abs(o.coords.row - k.coords.row) <= 1 && Math.abs(o.coords.column - k.coords.column) <= 1) { out.add(ctx); queue.push(ctx); }
+        }
+    }
+    return [...out];
+}
+
+// Tell the settings panel how many keys are in this key's board (0 = nothing chosen yet), so it can warn
+// that a change moves all of them. Sent when the panel opens and after a change that can alter the block.
+function sendBoardInfo(context) {
+    const k = boardKeys.get(context);
+    if (!k) return;
+    const n = k.settings.unset ? 0 : boardBlock(context).length;
+    ws.send(JSON.stringify({ event: 'sendToPropertyInspector', context, payload: { boardKeys: n } }));
+}
+
+function handleBoardEvent({ event, context, payload, device }) {
+    switch (event) {
+        case 'propertyInspectorDidAppear':
+            sendBoardInfo(context);
+            break;
+        case 'willAppear': {
+            const raw = (payload && payload.settings) || {};
+            const settings = boardCfg(raw);
+            const coords = (payload && payload.coordinates) || { row: 0, column: 0 };
+            boardKeys.set(context, { device: device || '__unknown__', coords, settings });
+            log('Scoreboard willAppear row=' + coords.row + ' col=' + coords.column + ' source=' + (settings.unset ? 'unset' : boardDayKey(settings)) + ' keys=' + boardKeys.size);
+            if (boardDebounce) clearTimeout(boardDebounce);
+            boardDebounce = setTimeout(() => { boardDebounce = null; refreshBoard(); }, 300);
+            break;
+        }
+        case 'willDisappear':
+            boardKeys.delete(context);
+            boardOverflow.delete(context);
+            clearBoardMemory(context);
+            if (boardKeys.size === 0 && boardTimer) { clearTimeout(boardTimer); boardTimer = null; log('Scoreboard: no keys — timer stopped'); }
+            // Remaining keys re-flow right away (e.g. the last one becomes "+N more") instead of at the next poll.
+            // Debounced like willAppear, so a page or profile switch that removes every key does one no-op refresh.
+            else {
+                if (boardDebounce) clearTimeout(boardDebounce);
+                boardDebounce = setTimeout(() => { boardDebounce = null; refreshBoard(); }, 300);
+            }
+            break;
+        case 'didReceiveSettings':
+        case 'sendToPlugin': {
+            const k = boardKeys.get(context);
+            const incoming = payload && payload.settings;
+            if (!k || !incoming) break;
+            const next = boardCfg(incoming);
+            if (boardSig(next) === boardSig(k.settings)) { k.settings = next; break; }   // our own echo
+            const block = boardBlock(context);   // the board this key belonged to (old settings)
+            log('Scoreboard settings → ' + boardSig(next) + ' for ' + block.length + ' key(s)');
+            for (const ctx of block) {
+                const o = boardKeys.get(ctx);
+                o.settings = next;
+                clearBoardMemory(ctx);
+                if (ctx !== context) ws.send(JSON.stringify({ event: 'setSettings', context: ctx, payload: next }));
+            }
+            refreshBoard();
+            sendBoardInfo(context);
+            break;
+        }
+        case 'keyUp': {
+            const k  = boardKeys.get(context);
+            const st = k ? k.settings : boardCfg({});
+            if (st.unset) break;   // nothing chosen yet — nothing to open
+            if (boardOverflow.has(context)) { ws.send(JSON.stringify({ event: 'openUrl', payload: { url: boardMoreUrl(st) } })); break; }
+            const game = boardSlotGame.get(context);
+            if (game && game.gamePk) {
+                // Stream option: only while the game is on (and for 30 min after the final)
+                const mem = boardMemory.get(context);
+                let link = st.linkType;
+                if (link === 'tv' && game.state === 'final' && !(mem && mem.finalAt && Date.now() - mem.finalAt < 30 * 60 * 1000)) link = 'gameday';
+                openGameUrl(game, link, { teamId: game.homeId, customUrl: '' }, 'Scoreboard keyUp');
+                break;
+            }
+            refreshBoard();
+            ws.send(JSON.stringify({ event: 'openUrl', payload: { url: boardMoreUrl(st) } }));
+            break;
+        }
+    }
+}
+
+function sortBoardKeys(contexts, order) {
+    return contexts.sort((a, b) => {
+        const ca = boardKeys.get(a).coords, cb = boardKeys.get(b).coords;
+        if (order === 'row') return (ca.row - cb.row) || (ca.column - cb.column);
+        return (ca.column - cb.column) || (ca.row - cb.row);
+    });
+}
+
+// ── A league's games for today (or its next game day within a week) ──
+const boardDayCache = new Map(); // leagueId -> { at, games }
+const BOARD_DAY_TTL_MS = 20_000;
+const boardDayInflight = new Map(); // league key -> pending lookup
+
+
+const boardDayKey = st => st.level === '1' ? 'mlb' : 'L' + st.leagueId;
+
+// Top line of a board key whose league could not be loaded (and has nothing cached): the same
+// "<abbr> / Err" look the team keys use, so the key says which league failed.
+const BOARD_ERR_LABELS = { '1': 'MLB', '11': 'AAA', '12': 'AA', '13': 'A+', '14': 'A', '16': 'ROK',
+    L119: 'AFL', L595: 'ABL', L131: 'LIDOM', L132: 'LMP', L133: 'LBPRC', L135: 'LVBP', L162: 'CS',
+    L5536: 'DL', L565: 'CCBL', L120: 'APP' };
+const boardErrLines = st => BOARD_ERR_LABELS[String(st.level)] ? [BOARD_ERR_LABELS[String(st.level)], 'Err'] : ['Err'];
+
+async function fetchBoardDay(st) {
+    const key = boardDayKey(st);
+    const hit = boardDayCache.get(key);
+    if (hit && Date.now() - hit.at < BOARD_DAY_TTL_MS) return hit;
+    // One lookup per league at a time: a refresh that starts while the league's request is
+    // still pending joins it instead of starting another.
+    if (boardDayInflight.has(key)) return boardDayInflight.get(key);
+    const urls = new Set();
+    const p = depScope.run(urls, () => fetchBoardDayNow(st, key)).then(res => { boardDayCache.set(key, res); return res; });
+    boardDayInflight.set(key, p);
+    const done = () => { if (boardDayInflight.get(key) === p) boardDayInflight.delete(key); };
+    p.then(done, done);
+    return p;
+}
+
+async function fetchBoardDayNow(st, key) {
+    const urls = depScope.getStore();
+    const mlb   = st.level === '1';
+    const today = scheduleDate();   // Eastern date, same 5am rollover as the team keys
+    // Leagues: yesterday..tomorrow, so a game that is live on the previous / next local date (overnight-ET
+    // leagues) is shown instead of waiting for the rollover.
+    // MLB uses the very same URL the team keys use (date= first, then hydrate), so one cached request feeds all.
+    const url = range => mlb ? SCHEDULE_URL + '?sportId=1' + range + '&hydrate=linescore'
+                             : SCHEDULE_URL + '?sportId=' + SPORT_IDS + '&leagueId=' + st.leagueId + '&hydrate=linescore,team' + range;
+    let data = mlb ? await cachedJson(url('&date=' + today))
+                   : pickSlate(await cachedJson(url('&startDate=' + addDays(today, -1) + '&endDate=' + addDays(today, 1))), today);
+    let futureDay = false;
+    if (!(data?.dates || []).some(d => (d.games || []).length)) {
+        data = await cachedJson(url('&startDate=' + addDays(today, 1) + '&endDate=' + addDays(today, 7)));
+        const first = (data?.dates || []).find(d => (d.games || []).length);
+        data = { dates: first ? [first] : [] };
+        futureDay = true;
+    }
+    const dateRow = (data.dates || [])[0];
+    const games = [];
+    for (const g of (dateRow ? dateRow.games : [])) {
+        const game = parseSchedule({ dates: [{ date: dateRow.date, games: [g] }] }, mlb);
+        if (!game) continue;
+        if ((g.doubleHeader === 'Y' || g.doubleHeader === 'S') && g.gameNumber) game.gameLabel = 'G' + g.gameNumber;
+        game.startMs = Date.parse(g.gameDate) || 0;
+        if (futureDay && game.state === 'preview') game.state = 'nextgame';   // key shows the day (pregameWhen)
+        games.push(game);
+    }
+    games.sort((a, b) => a.startMs - b.startMs);   // stable: ties keep the API's order (G1 before G2)
+    return { at: Date.now(), games, urls };
+}
+
+
+function scheduleBoard() {
+    if (boardTimer) clearTimeout(boardTimer);
+    if (boardKeys.size === 0) { boardTimer = null; return; }
+    boardTimer = setTimeout(refreshBoard, 30_000);
+}
+
+async function refreshBoard() {
+    if (boardKeys.size === 0) return;
+    // No "one refresh at a time" lock: a league whose request hangs must not stop the other
+    // boards from refreshing (or a new key from drawing). The next refresh is armed up front
+    // for the same reason; a source that is still pending is joined, not refetched.
+    scheduleBoard();
+    try {
+        const boards = new Map();   // same device + same settings
+        for (const [ctx, k] of boardKeys) {
+            if (k.settings.unset) {   // no source chosen yet: prompt, and stay out of every board
+                keyDeps.delete(ctx); boardSlotGame.delete(ctx); boardMemory.delete(ctx); boardOverflow.delete(ctx);
+                if (!flashing.has(ctx)) setKey(ctx, ['Select A', 'League In', 'Settings'], undefined, resolveBgColor(k.settings));
+                continue;
+            }
+            const id = k.device + '#' + boardSig(k.settings);
+            if (!boards.has(id)) boards.set(id, { settings: k.settings, keys: [] });
+            boards.get(id).keys.push(ctx);
+        }
+        const sources = new Map();   // one fetch per distinct source
+        for (const b of boards.values()) sources.set(boardDayKey(b.settings), b.settings);
+        // Each source renders the moment its own fetch resolves, so one slow league
+        // doesn't hold up the other boards.
+        await Promise.all([...sources].map(async ([k, st]) => {
+            let day = null;
+            try { day = await fetchBoardDay(st); }
+            catch (err) { log('Scoreboard fetch error (' + k + '):', err.message); }
+            for (const b of boards.values()) {
+                if (boardDayKey(b.settings) !== k) continue;
+                const st = b.settings, bg = resolveBgColor(st);
+                const sorted = sortBoardKeys(b.keys.slice(), st.sortOrder);
+                for (const ctx of sorted) keyDeps.set(ctx, day ? day.urls : new Set());
+                if (!day) { for (const ctx of sorted) if (!flashing.has(ctx)) setKey(ctx, boardErrLines(st), undefined, bg); continue; }
+                let games = day.games.slice();
+                if (st.finalsLast) games = [...games.filter(g => g.state !== 'final'), ...games.filter(g => g.state === 'final')];
+                for (const ctx of sorted) boardOverflow.delete(ctx);
+                const over  = games.length > sorted.length;
+                const slots = over ? sorted.length - 1 : sorted.length;
+                for (let i = 0; i < slots; i++) renderBoardKey(sorted[i], games[i] || null, st);
+                if (over) {
+                    const ctx = sorted[sorted.length - 1];
+                    boardOverflow.add(ctx);
+                    boardMemory.delete(ctx); boardSlotGame.delete(ctx);
+                    if (!flashing.has(ctx)) setKey(ctx, [{ text: '+' + (games.length - slots), fs: 22, color: '#FFD700' }, { text: 'more', fs: 13, color: '#999999' }], 1.3, bg);
+                }
+                logQuiet('board:' + k + ':' + (sorted[0] || ''), 'Scoreboard ' + k + ': ' + games.length + ' games, ' + sorted.length + ' keys');
+            }
+        }));
+    } catch (err) {
+        log('Scoreboard error:', err.message);
+    }
+}
+
+function renderBoardKey(context, game, st) {
+    if (flashing.has(context)) return;
+    const k = boardKeys.get(context);
+    st = st || (k ? k.settings : boardCfg({}));
+    const bg = resolveBgColor(st);
+    if (st.unset) { setKey(context, ['Select A', 'League In', 'Settings'], undefined, bg); return; }
+    boardSlotGame.set(context, game);
+    if (!game) { boardMemory.delete(context); setKey(context, ['No', 'Game'], undefined, bg); return; }
+
+    const lines   = buildLines(game, { teamAbbr: 'MLB' });
+    const spacing = lines.spacing || (lines.some(l => typeof l === 'object') ? 1.2 : 1.4);
+    const prev    = boardMemory.get(context);
+    const same    = prev && prev.gamePk === game.gamePk;
+    const mem     = { gamePk: game.gamePk, state: game.state, awayRuns: game.awayRuns, homeRuns: game.homeRuns, finalAt: same ? prev.finalAt : null };
+    boardMemory.set(context, mem);
+
+    if (same && prev.state === 'live' && game.state === 'final') {
+        mem.finalAt = Date.now();
+        const homeWon = game.homeRuns >= game.awayRuns;
+        const name  = homeWon ? game.homeName : game.awayName;
+        const color = game.isMLB ? teamColor(homeWon ? game.homeId : game.awayId)
+                                 : (PARENT_ORG_COLOR[homeWon ? game.homeParentOrgId : game.awayParentOrgId] || '#FFD700');
+        log('Scoreboard — game over, fireworks for', name);
+        playFireworks(context, name, color).catch(e => log('fireworks error:', e.message));
+        return;
+    }
+    if (same && prev.state === 'live' && game.state === 'live') {
+        const awayScored = game.awayRuns > prev.awayRuns, homeScored = game.homeRuns > prev.homeRuns;
+        if (awayScored || homeScored) {
+            const color = (awayScored && homeScored) ? '#FFFFFF'
+                : game.isMLB ? teamColor(awayScored ? game.awayId : game.homeId)
+                : (PARENT_ORG_COLOR[awayScored ? game.awayParentOrgId : game.homeParentOrgId] || '#FFFFFF');
+            const card = (awayScored && homeScored) ? null
+                : awayScored ? runsCardLines(game.awayAbbr, game.awayRuns - prev.awayRuns)
+                             : runsCardLines(game.homeAbbr, game.homeRuns - prev.homeRuns);
+            log('Scoreboard — score change ' + game.matchup + ', flashing', color);
+            flashKey(context, color, lines, spacing, bg, card).catch(e => log('flash error:', e.message));
+            return;
+        }
+    }
+    setKey(context, lines, spacing, bg);
 }

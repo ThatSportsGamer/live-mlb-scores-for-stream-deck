@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title>Live MLB Scoreboard Settings</title>
+    <style>
+        :root {
+            --bg:        #1e1e1e;
+            --surface:   #2c2c2c;
+            --border:    #444;
+            --text:      #d4d4d4;
+            --accent-hi: #007ECA;
+            --radius:    6px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; font-size: 13px; padding: 12px; }
+        h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #fff; margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+        label { display: block; margin-bottom: 4px; color: #aaa; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+        select {
+            width: 100%; padding: 7px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+            color: var(--text); font-size: 13px; cursor: pointer; appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 10px center; margin-bottom: 14px;
+        }
+        select:focus { outline: none; border-color: var(--accent-hi); }
+        select:disabled { opacity: .5; }
+        .info-box { padding: 9px 11px; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent-hi); border-radius: var(--radius); font-size: 11px; color: #999; line-height: 1.6; margin-bottom: 10px; }
+        .info-box strong { color: var(--text); }
+        .note-box { padding: 9px 11px; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid #555; border-radius: var(--radius); font-size: 11px; color: #888; line-height: 1.6; }
+        .checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .hint { font-size: 11px; color: #888; line-height: 1.5; margin: -8px 0 14px; }
+        .hint:empty { display: none; }
+        .checkbox-row input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent-hi); }
+        .checkbox-row label { margin-bottom: 0; color: var(--text); font-size: 12px; text-transform: none; letter-spacing: normal; cursor: pointer; }
+        .bg-controls { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+        .bg-controls.disabled { opacity: .4; pointer-events: none; }
+        input[type="color"] { width: 34px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: pointer; }
+        input[type="range"] { flex: 1; accent-color: var(--accent-hi); cursor: pointer; }
+        .opacity-value { width: 34px; text-align: right; font-size: 11px; color: #aaa; }
+        .bg-hint { margin-top: 6px; font-size: 10.5px; color: #777; line-height: 1.4; }
+        #status { font-size: 11px; color: #e57373; margin: -6px 0 12px; }
+    </style>
+</head>
+<body>
+
+<h2>⚾ Live MLB Scoreboard</h2>
+
+<label for="level">League or Level</label>
+<select id="level"><option value="">Loading…</option></select>
+
+<div id="leagueRow">
+    <label for="league">League</label>
+    <select id="league"></select>
+</div>
+<div class="hint" id="keysHint"></div>
+<div class="hint" id="blockHint" style="display:none;"></div>
+<div id="status"></div>
+
+<label for="linkType">Key Press Opens</label>
+<select id="linkType">
+    <option value="gameday">MLB Gameday (free)</option>
+    <option value="tv">MLB.TV (subscription)</option>
+</select>
+<div class="hint" id="streamHint" style="display:none;"></div>
+
+<label for="sortOrder">Fill Order</label>
+<select id="sortOrder">
+    <option value="column">Top-to-bottom, left-to-right</option>
+    <option value="row">Left-to-right, top-to-bottom</option>
+</select>
+
+<div class="checkbox-row">
+    <input type="checkbox" id="finalsLast">
+    <label for="finalsLast">Send completed games to the end of the list</label>
+</div>
+<div class="hint" style="margin-top:-6px;">Handy on smaller Stream Decks.</div>
+
+<label style="margin-top:4px;">Key Background</label>
+<div class="checkbox-row" style="margin-bottom:0;">
+    <input type="checkbox" id="bgEnabled">
+    <label for="bgEnabled">Use a custom background color for this board</label>
+</div>
+<div class="bg-controls disabled" id="bgControls">
+    <input type="color" id="bgColorInput" value="#000000"/>
+    <input type="range" id="bgOpacityInput" min="10" max="100" value="100"/>
+    <span class="opacity-value" id="bgOpacityValue">100%</span>
+</div>
+<div class="bg-hint" style="margin-bottom:14px;">Light colors can make the text hard to read.</div>
+
+<div class="note-box">
+    For one team, use the <strong>Live MLB Scores</strong> action.
+</div>
+
+<script>
+    var websocket = null, piUUID = null, actionUUID = null;
+    var current = {};          // last settings we know about
+    var leaguesByLevel = {};   // level key -> [{ id, name, teams }]
+    var ready = false;
+
+    // Same level list as the team settings (keep in sync with property-inspector.html)
+    var LEVEL_GROUPS = [
+        { label: 'Major League Baseball', levels: [ { key: '1', label: 'MLB' } ] },
+        { label: 'Minor Leagues', levels: [
+            { key: '11', label: 'Triple-A' }, { key: '12', label: 'Double-A' }, { key: '13', label: 'High-A' },
+            { key: '14', label: 'Single-A' }, { key: '16', label: 'Rookie (ACL, FCL, DSL)' } ] },
+        { label: 'Summer College & Draft (Jun–Aug)', levels: [
+            { key: 'L5536', label: 'MLB Draft League' }, { key: 'L565', label: 'Cape Cod League' }, { key: 'L120', label: 'Appalachian League' } ] },
+        { label: 'Fall & Winter (Oct–Feb)', levels: [
+            { key: 'L119', label: 'Arizona Fall League (AFL)' },
+            { key: 'L595', label: 'Australian Baseball League (ABL)' },
+            { key: 'L131', label: 'Dominican Winter League (LIDOM)' },
+            { key: 'L132', label: 'Mexican Winter League (LMP)' },
+            { key: 'L133', label: 'Puerto Rican Winter League (LBPRC)' },
+            { key: 'L135', label: 'Venezuelan Winter League (LVBP)' },
+            { key: 'L162', label: 'Caribbean Series' } ] }
+    ];
+    var MINOR_SPORTS = [11, 12, 13, 14, 16];
+    var LEAGUE_LEVEL_IDS = [5536, 565, 120, 119, 132, 135, 131, 133, 595, 162];
+    var AFL_LEAGUE_ID = 119;
+    // MLB (level '1') has no League step: one fixed entry, 30 clubs
+    var MLB_ENTRY = [{ id: 0, name: 'MLB', teams: 30 }];
+    var MLBCOM_LEAGUES = { 131: 1, 132: 1, 135: 1, 133: 1, 595: 1, 162: 1, 121: 1, 124: 1, 130: 1, 5536: 1, 565: 1, 120: 1 };
+    // same wording as the team panel (property-inspector.html NO_STREAM_LEAGUES), without its Custom Link sentence: Scoreboard keys have no Custom Link option
+    var NO_STREAM = {
+        135: "No stream link for this league.",
+        133: "No stream link for this league.",
+        595: "No stream link for this league.",
+        162: "No stream link for this league.",
+        121: "No stream link for this league.",
+        124: "No stream link for this league.",
+        130: "No stream link for this league.",
+        5536: "No stream link for this league.",
+        565: "No stream link for this league.",
+        120: "No stream link for this league."
+    };
+    var $ = function(id) { return document.getElementById(id); };
+    function levelKeyOf(sid, lid) { return MINOR_SPORTS.indexOf(sid) !== -1 ? String(sid) : 'L' + lid; }
+
+    function fetchLeagues() {
+        var url = 'https://statsapi.mlb.com/api/v1/teams?sportIds=11,12,13,14,16,17,22&season=' + new Date().getFullYear();
+        fetch(url).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function(data) {
+            var map = {};
+            (data.teams || []).forEach(function(t) {
+                var sid = (t.sport && t.sport.id) || 0, lid = (t.league && t.league.id) || 0;
+                if (MINOR_SPORTS.indexOf(sid) === -1 && LEAGUE_LEVEL_IDS.indexOf(lid) === -1) return;
+                var key = levelKeyOf(sid, lid);
+                map[key] = map[key] || {};
+                map[key][lid] = map[key][lid] || { id: lid, name: (t.league && t.league.name) || ('League ' + lid), teams: 0 };
+                map[key][lid].teams++;
+            });
+            Object.keys(map).forEach(function(k) {
+                leaguesByLevel[k] = Object.keys(map[k]).map(function(id) { return map[k][id]; })
+                    .sort(function(a, b) { return a.name.localeCompare(b.name); });
+            });
+            leaguesByLevel['1'] = MLB_ENTRY;
+            fillLevels();
+            ready = true;
+            applySettings(current);
+        }).catch(function() { $('status').textContent = 'Could not load the league list — check your connection.'; });
+    }
+
+    function fillLevels() {
+        var sel = $('level'); sel.innerHTML = '';
+        var blank = document.createElement('option'); blank.value = ''; blank.textContent = '— Select a League or Level —'; sel.appendChild(blank);
+        LEVEL_GROUPS.forEach(function(g) {
+            var og = document.createElement('optgroup'); og.label = g.label;
+            g.levels.forEach(function(l) {
+                if (!leaguesByLevel[l.key]) return;
+                var o = document.createElement('option'); o.value = l.key; o.textContent = l.label; og.appendChild(o);
+            });
+            if (og.children.length) sel.appendChild(og);
+        });
+    }
+
+    function fillLeagues(level, leagueId) {
+        var list = leaguesByLevel[level] || [], sel = $('league');
+        sel.innerHTML = '';
+        list.forEach(function(lg) { var o = document.createElement('option'); o.value = lg.id; o.textContent = lg.name; sel.appendChild(o); });
+        $('leagueRow').style.display = list.length > 1 ? '' : 'none';
+        if (list.some(function(lg) { return String(lg.id) === String(leagueId); })) sel.value = leagueId;
+        updateHints();
+    }
+
+    function updateHints() {
+        var level = $('level').value, lid = parseInt($('league').value, 10);
+        var lg = (leaguesByLevel[level] || []).filter(function(x) { return x.id === lid; })[0];
+        if (!level) { $('keysHint').textContent = ''; $('streamHint').style.display = 'none'; return; }
+        $('keysHint').textContent = lg ? 'Fits ' + Math.ceil(lg.teams / 2) + ' keys (' + lg.teams + ' teams), more with doubleheaders.' : '';
+        var isMlb = level === '1';
+        var noStream = !!NO_STREAM[lid], mlbcom = !!MLBCOM_LEAGUES[lid] || isMlb;
+        var tv = document.querySelector('#linkType option[value="tv"]');
+        document.querySelector('#linkType option[value="gameday"]').textContent = mlbcom ? 'MLB Gameday (free)' : 'MiLB Gameday (free)';
+        tv.textContent = noStream ? 'Live stream (not available for this league)' : lid === AFL_LEAGUE_ID ? 'AFL Live Stream (free on MLB.com)' : mlbcom ? 'MLB.TV (subscription)' : 'MiLB.tv (subscription)';
+        tv.disabled = noStream;
+        if (noStream && $('linkType').value === 'tv') $('linkType').value = 'gameday';
+        $('streamHint').style.display = noStream ? 'block' : 'none';
+        $('streamHint').textContent = noStream ? NO_STREAM[lid] : '';
+    }
+
+    // How many keys share this key's board (sent by the plugin when the panel opens and after a change).
+    function showBlock(n) {
+        var el = $('blockHint');
+        if (n > 1) {
+            el.textContent = 'Changes apply to all ' + n + ' touching keys.';
+            el.style.display = '';
+        } else {
+            el.style.display = 'none';
+        }
+    }
+
+    function applySettings(s) {
+        current = s || {};
+        if (ready) {
+            var level = current.level || '';   // a new key has nothing chosen yet
+            if (level && !leaguesByLevel[level]) level = '';
+            $('level').value = level;
+            fillLeagues(level, current.leagueId || 0);
+        }
+        $('linkType').value  = current.linkType === 'tv' ? 'tv' : 'gameday';
+        $('sortOrder').value = current.sortOrder || 'column';
+        $('finalsLast').checked = !!current.finalsLast;
+        var on = !!current.bgColor;
+        $('bgEnabled').checked = on;
+        $('bgColorInput').value = current.bgColor || '#000000';
+        var op = current.bgOpacity != null ? current.bgOpacity : 100;
+        $('bgOpacityInput').value = op; $('bgOpacityValue').textContent = op + '%';
+        $('bgControls').classList.toggle('disabled', !on);
+        if (ready) updateHints();
+    }
+
+    function saveSettings() {
+        if (!websocket || !piUUID || !ready) return;
+        updateHints();
+        var settings = {
+            level:      $('level').value,
+            leagueId:   parseInt($('league').value, 10),
+            linkType:   $('linkType').value,
+            sortOrder:  $('sortOrder').value,
+            finalsLast: $('finalsLast').checked,
+            bgColor:    $('bgEnabled').checked ? $('bgColorInput').value : null,
+            bgOpacity:  parseInt($('bgOpacityInput').value, 10)
+        };
+        current = settings;
+        websocket.send(JSON.stringify({ event: 'setSettings',  context: piUUID, payload: settings }));
+        websocket.send(JSON.stringify({ event: 'sendToPlugin', context: piUUID, action: actionUUID, payload: { event: 'settingsChanged', settings: settings } }));
+    }
+
+    function connectElgatoStreamDeckSocket(port, propertyInspectorUUID, registerEvent, info, actionInfo) {
+        piUUID = propertyInspectorUUID;
+        try { var ai = JSON.parse(actionInfo); actionUUID = ai.action; current = (ai.payload && ai.payload.settings) || {}; } catch (e) {}
+        applySettings(current);
+        websocket = new WebSocket('ws://127.0.0.1:' + port);
+        websocket.onopen = function() {
+            websocket.send(JSON.stringify({ event: registerEvent, uuid: propertyInspectorUUID }));
+            websocket.send(JSON.stringify({ event: 'getSettings', context: propertyInspectorUUID }));
+        };
+        websocket.onmessage = function(evt) {
+            try {
+                var d = JSON.parse(evt.data);
+                if (d.event === 'didReceiveSettings') applySettings((d.payload && d.payload.settings) || {});
+                if (d.event === 'sendToPropertyInspector') showBlock(d.payload && d.payload.boardKeys);
+            } catch (e) {}
+        };
+        fetchLeagues();
+    }
+
+    $('level').addEventListener('change', function() { fillLeagues(this.value, null); saveSettings(); });
+    $('league').addEventListener('change', saveSettings);
+    ['linkType', 'sortOrder'].forEach(function(id) { $(id).addEventListener('change', saveSettings); });
+    $('finalsLast').addEventListener('change', saveSettings);
+    $('bgEnabled').addEventListener('change', function() { $('bgControls').classList.toggle('disabled', !this.checked); saveSettings(); });
+    $('bgColorInput').addEventListener('change', saveSettings);
+    $('bgOpacityInput').addEventListener('input', function() { $('bgOpacityValue').textContent = this.value + '%'; });
+    $('bgOpacityInput').addEventListener('change', saveSettings);
+</script>
+
+<div style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #444; text-align: center; color: #666; font-size: 10px; line-height: 1.5;">
+    Created by T.J. Lauerman<br>aka ThatSportsGamer
+</div>
+
+</body>
+</html>
