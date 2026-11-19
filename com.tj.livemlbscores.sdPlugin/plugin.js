@@ -894,6 +894,31 @@ function scheduleDate() {
     const p = etParts(Date.now() - DAY_ROLLOVER_ET_HOUR * 3600e3);
     return p.year + '-' + String(p.month).padStart(2, '0') + '-' + String(p.day).padStart(2, '0');
 }
+// Leagues that play far from Eastern time keep their own clock. The ABL dates its schedule by the
+// Australian local date and plays overnight ET, so on the Eastern clock its finals sat on the keys
+// all day and the next night's games never showed as pregame. On Sydney time with the same 5 AM
+// rollover, the day turns at about 1:00 PM ET (2:00 PM during US daylight time): finals stay up
+// through the US morning, then the keys show that night's games with their start times.
+const LEAGUE_CLOCK = { 595: 'Australia/Sydney' };
+const LEAGUE_FORMAT = {};
+function leagueScheduleDate(leagueId) {
+    const zone = LEAGUE_CLOCK[Number(leagueId)];
+    if (!zone) return scheduleDate();
+    const f = LEAGUE_FORMAT[zone] || (LEAGUE_FORMAT[zone] = new Intl.DateTimeFormat('en-US', {
+        timeZone: zone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric',
+    }));
+    const o = {};
+    for (const x of f.formatToParts(new Date(Date.now() - DAY_ROLLOVER_ET_HOUR * 3600e3))) o[x.type] = x.value;
+    return o.year + '-' + String(o.month).padStart(2, '0') + '-' + String(o.day).padStart(2, '0');
+}
+// The league a team-key response belongs to (first game's home club), for its clock.
+function slateLeagueId(data) {
+    for (const d of (data?.dates || [])) for (const g of (d.games || [])) {
+        const id = g?.teams?.home?.team?.league?.id;
+        if (id) return id;
+    }
+    return 0;
+}
 // YYYY-MM-DD plus n days, by calendar (host timezone and DST can't matter).
 function addDays(ymd, n) {
     const d = new Date(ymd + 'T00:00:00Z');
@@ -1062,16 +1087,20 @@ async function fetchTodayGame(cfg) {
 }
 
 async function fetchTodayMinorGame(teamId) {
-    const date = scheduleDate();
+    const etDate = scheduleDate();
     // sportId=11,12,13,14 covers Triple-A, Double-A, High-A, Single-A; 17 adds the
     // Arizona Fall League and the Mexican / Venezuelan / Dominican winter leagues
     // (sport 17 is all winter leagues; we query by teamId, so only the tracked club comes back)
     const url = 'https://statsapi.mlb.com/api/v1/schedule' +
-                '?sportId=' + SPORT_IDS + '&startDate=' + addDays(date, -1) + '&endDate=' + addDays(date, 1) +
+                '?sportId=' + SPORT_IDS + '&startDate=' + addDays(etDate, -1) + '&endDate=' + addDays(etDate, 1) +
                 '&teamId=' + teamId +
                 '&hydrate=linescore,team';
 
-    const game = parseSchedule(pickSlate(await cachedJson(url), date));
+    const data = await cachedJson(url);
+    // A league on its own clock (ABL) can be a day ahead of the Eastern date; the request's
+    // yesterday..tomorrow window covers that.
+    const date = leagueScheduleDate(slateLeagueId(data));
+    const game = parseSchedule(pickSlate(data, date));
     if (game) return game;
     // Truly an off day — look ahead to the next scheduled game instead of a dead end
     try { return await fetchNextGame(teamId, date); } catch (e) { return null; }
@@ -1823,7 +1852,7 @@ async function fetchBoardDay(st) {
 async function fetchBoardDayNow(st, key) {
     const urls = depScope.getStore();
     const mlb   = st.level === '1';
-    const today = scheduleDate();   // Eastern date, same 5am rollover as the team keys
+    const today = mlb ? scheduleDate() : leagueScheduleDate(st.leagueId);   // Eastern date (5am rollover) unless the league keeps its own clock (ABL)
     // Leagues: yesterday..tomorrow, so a game that is live on the previous / next local date (overnight-ET
     // leagues) is shown instead of waiting for the rollover.
     // MLB uses the very same URL the team keys use (date= first, then hydrate), so one cached request feeds all.
