@@ -4,7 +4,7 @@
 
 From Rookie ball to the Majors, plus the summer, fall and winter leagues, keep tabs on your favorite baseball teams right on your Stream Deck. Put a team on a key, or build out a whole scoreboard across your keys. Everything updates automatically.
 
-![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-2.0.0-green) [![Elgato Marketplace](https://img.shields.io/badge/Elgato-Marketplace-black)](https://marketplace.elgato.com/product/live-mlb-scores-fbafac13-4e61-4452-b677-5e60fea52639)
+![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-2.0.0.1-green) [![Elgato Marketplace](https://img.shields.io/badge/Elgato-Marketplace-black)](https://marketplace.elgato.com/product/live-mlb-scores-fbafac13-4e61-4452-b677-5e60fea52639)
 
 > **2.0 is in pre-release.** The Elgato Marketplace still has version 1.0.33 until 2.0 is approved. Want to try 2.0 now? Grab **`Live MLB Scores.streamDeckPlugin`** from the [Releases](../../releases) page. Your existing Live MLB Scores keys keep their team and settings when you upgrade.
 
@@ -25,7 +25,7 @@ Live MLB Scores 2.0 combines and expands upon **Live MLB Scores**, **Live MiLB S
 - **A link for every league.** If a key has no game, or a scoreboard has more games than keys, pressing it takes you to that league's schedule page.
 - **Clearer heads-up when data stalls.** If one league stops updating, only its keys get a small amber dot. The rest carry on as normal.
 - **Suspended games.** They show `SUSP`, then `RESUME` with the start time on the day they pick back up.
-- **Night owls welcome.** Australia's overnight games show up as live games, and the day doesn't roll over until 5:00 AM Eastern, so late games and their finals stay on your keys.
+- **Night owls welcome.** Australian games follow Sydney time: the morning's finals stay on your keys, and around 1:00 PM Eastern they switch to that night's games. Everywhere else the day doesn't roll over until 5:00 AM Eastern, so late games and their finals stay on your keys.
 
 ---
 
@@ -117,6 +117,9 @@ A few handy options:
 
 ## Recent Updates
 
+**v2.0.0.1**
+- Australian Baseball League keys now follow Sydney time. The day turns over at 5:00 AM in Sydney (about 1:00 PM Eastern), so the morning's finals stay up through the US morning, then the keys show that night's games with their start times instead of waiting until they go live. Every other league still rolls over at 5:00 AM Eastern
+
 **v2.0.0.0**
 - Live MLB Scores, Live MiLB Scores and Live MLB Scoreboard are now one plugin (see What's New in 2.0 above)
 - New leagues: Rookie ball (ACL, FCL, DSL), the Arizona Fall League, the Australian Baseball League, the Caribbean winter leagues (LIDOM, LMP, LBPRC, LVBP), the Caribbean Series, and the MLB Draft, Cape Cod and Appalachian leagues
@@ -128,13 +131,6 @@ A few handy options:
 - Far fewer requests: all your keys now share one request for the day's schedule instead of every key asking for its own team
 - If MLB's data stops responding for a moment, keys keep showing the last scores with a small amber dot instead of "Err" (after 10 minutes without an update they show "Err")
 - Now runs on Node.js 24 and needs Stream Deck 7.1 or later (Elgato is retiring Node.js 20)
-
-**v1.0.32.0**
-- Pregame keys match the NFL, CFB, NHL and NBA plugins: the teams stack on two lines (away team on top, "@ home" below, with a small "@"), then the start time. On game day it's just the teams and the time; for a later day the day gets its own gray line above the time
-- Off-day keys show your team's next game the same way: the "Next Game" label is gone, and the day line reads the weekday ("Thursday"), or the date when it's a week or more away
-- Doubleheaders put the game number on the day line ("Game 2")
-- Postponed, canceled, suspended, delayed and warmup keys use the same stacked teams
-- A postseason opponent that isn't decided yet shows its placeholder (e.g. `TB/CLE` for a World Series game) instead of "MLB"
 
 Older updates: see the full version history in [CHANGELOG.md](CHANGELOG.md).
 
@@ -232,7 +228,7 @@ Every so often a league's data takes a break. When that happens, your keys keep 
 
 ## How It Works
 
-The plugin checks [MLB's free public Stats API](https://statsapi.mlb.com) about every 30 seconds. There's no API key or account involved, and it only uses Node.js's built-in modules. The day rolls over at 5:00 AM Eastern (2:00 AM Pacific), so late games and their finals stay on your keys overnight wherever you are. Stream links for the leagues that have them are looked up when you press the key.
+The plugin checks [MLB's free public Stats API](https://statsapi.mlb.com) about every 30 seconds. There's no API key or account involved, and it only uses Node.js's built-in modules. The day rolls over at 5:00 AM Eastern (2:00 AM Pacific), so late games and their finals stay on your keys overnight wherever you are. Australian Baseball League keys use Sydney time instead (5:00 AM there, about 1:00 PM Eastern), since the ABL dates its games by the Australian date. Stream links for the leagues that have them are looked up when you press the key.
 
 ---
 

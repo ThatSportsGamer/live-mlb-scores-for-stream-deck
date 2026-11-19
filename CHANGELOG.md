@@ -2,6 +2,9 @@
 
 Full version history for Live MLB Scores, newest first. The [README](README.md) lists the three most recent updates.
 
+**v2.0.0.1**
+- Australian Baseball League keys now follow Sydney time. The day turns over at 5:00 AM in Sydney (about 1:00 PM Eastern), so the morning's finals stay up through the US morning, then the keys show that night's games with their start times instead of waiting until they go live. Every other league still rolls over at 5:00 AM Eastern
+
 **v2.0.0.0**
 - Live MLB Scores, Live MiLB Scores and Live MLB Scoreboard are now one plugin. Existing Live MLB Scores keys keep their team, Key Press Opens choice, Custom Link and background when you upgrade
 - Minor-league teams from Triple-A down to Single-A, browsable by league or by MLB organization, plus Rookie ball: the Arizona Complex, Florida Complex and Dominican Summer leagues
