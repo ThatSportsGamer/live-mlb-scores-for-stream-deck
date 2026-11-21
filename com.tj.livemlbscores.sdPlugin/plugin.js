@@ -348,7 +348,7 @@ function handleEvent(ev) {
                     // A key with no team chosen yet: nothing to open
                     log('keyUp — no team chosen, nothing to open');
                 } else {
-                    // True "No Game" (nothing in the next two weeks): refresh, and open the team's schedule
+                    // Offseason (nothing in the next two weeks): refresh, and open the team's schedule
                     const url = teamSchedulePage(cfg);
                     log('keyUp — no game, refreshing and opening schedule:', url);
                     ws.send(JSON.stringify({ event: 'openUrl', payload: { url } }));
@@ -477,7 +477,7 @@ function liveInnLine(outs, innText) {
 // ── Build key display lines ────────────────────────────────────────────────
 function buildLines(game, cfg) {
     const abbr = cfg.teamAbbr || 'MLB';
-    if (!game) return [abbr, 'No Game'];
+    if (!game) return offseasonLines(abbr);
 
     // Upcoming games (today, or the next one on an off day): stacked layout —
     // away / @ home / day / time, same as the NFL, CFB, NHL and NBA plugins.
@@ -1056,7 +1056,7 @@ async function fetchNextMlbGame(teamId, afterDate) {
             const startISO = g.gameDate || null;
             const gameDate = d.date ? d.date.replace(/-/g, '/') : '2000/01/01';
             const time = g.status?.startTimeTBD ? 'TBD' : fmtTime(startISO);
-            return { state: 'nextgame', isMLB: true, matchup, time, homeId, awayId, gamePk: g.gamePk, gameDate, startISO };
+            return { state: 'nextgame', isMLB: true, spring: isSpringGame(g), matchup, time, homeId, awayId, gamePk: g.gamePk, gameDate, startISO };
         }
     }
     return null;
@@ -1160,9 +1160,16 @@ function teamInfo(t, mlb) {
 
 function parseSchedule(data, mlb) {
     const game = parseScheduleCore(data, !!mlb);
-    if (game) { game.isMLB = !!mlb; if (game.otherGame) game.otherGame.isMLB = !!mlb; }
+    if (game) {
+        game.isMLB = !!mlb;
+        if (game.otherGame) game.otherGame.isMLB = !!mlb;
+        if (mlb) game.spring = isSpringGame((data?.dates?.[0]?.games || []).find(x => x.gamePk === game.gamePk));
+    }
     return game;
 }
+
+// Spring training (S) and exhibition (E) games: their upcoming keys get a green "ST" day line.
+const isSpringGame = g => g?.gameType === 'S' || g?.gameType === 'E';
 
 function parseScheduleCore(data, mlb) {
     try {
@@ -1381,7 +1388,8 @@ function resolveBgColor(cfg) {
 // (Windows + XL, Mac + Mini) with a separate font-test plugin, 2026-10-17.
 const PRE_TEAM_FS = 16, PRE_AT_FS = 10, PRE_DAY_FS = 11.5, PRE_TIME_FS = 11.5, PRE_GAMEDAY_TIME_FS = 14;
 const PRE_SPACING = 1.12, PRE_DAY_COLOR = '#BBBBBB', PRE_MAX_W = 66;
-// Helvetica-Bold advance widths (per 1000 em) — only used to shrink a team line
+const ST_COLOR = '#2ECC71';   // spring training day line (same green as WARMUP)
+// Helvetica-Bold advance widths (per 1000 em) — used to shrink a team line
 // that can't fit at 16 (e.g. G League's RCITY / VALLEY); unknown glyphs count wide.
 const PRE_GLYPHS = {
     A: 722, B: 722, C: 722, D: 722, E: 667, F: 611, G: 778, H: 722, I: 278,
@@ -1389,6 +1397,8 @@ const PRE_GLYPHS = {
     S: 667, T: 611, U: 722, V: 667, W: 944, X: 667, Y: 667, Z: 611,
     0: 556, 1: 556, 2: 556, 3: 556, 4: 556, 5: 556, 6: 556, 7: 556, 8: 556, 9: 556,
     '&': 778, '-': 333, '.': 278, '@': 975, v: 556, s: 556, ' ': 278,
+    // lowercase + slash for the spring training day line ("ST Tue 2/26")
+    '/': 278, a: 556, d: 611, e: 556, h: 611, i: 278, n: 611, o: 611, r: 389, u: 611, y: 556,
 };
 function preWidth(str, fs) {
     let u = 0;
@@ -1448,6 +1458,32 @@ function preHomeLineSvg(y, fs, item, color) {
 }
 
 
+// Offseason: nothing scheduled in the look-ahead (two weeks for a team key). The team (or league) name
+// over a gray "Offseason", in place of the old "No Game".
+function offseasonLines(name) {
+    let fs = 18;
+    while (fs > 9 && preWidth(name, fs) > PRE_MAX_W) fs -= 0.5;
+    return [{ text: name, fs }, { text: 'Offseason', fs: PRE_DAY_FS, color: PRE_DAY_COLOR }];
+}
+
+// Spring training day line, in green: "ST Today" on game day, otherwise "ST Thu 2/26"
+// (always the short day + date, since "ST Wednesday" doesn't fit). A split-squad
+// doubleheader adds the game number; the line shrinks if it would run past the edge.
+function springDayLines(game, when) {
+    let label = 'ST Today';
+    if (when.day) {
+        try {
+            const tz = game.time === 'TBD' ? { timeZone: 'America/New_York' } : {};
+            const d  = new Date(game.startISO);
+            label = 'ST ' + d.toLocaleDateString([], { weekday: 'short', ...tz }) + ' ' + d.toLocaleDateString([], { month: 'numeric', day: 'numeric', ...tz });
+        } catch (e) { label = 'ST ' + when.day.slice(0, 3); }
+    }
+    if (game.gameLabel) label += ' ' + game.gameLabel;
+    const w  = preWidth(label, PRE_DAY_FS);
+    const fs = w > PRE_MAX_W ? Math.max(9, Math.floor(PRE_DAY_FS * PRE_MAX_W / w * 2) / 2) : PRE_DAY_FS;
+    return [{ text: label, fs, color: ST_COLOR }, { text: when.time, fs: PRE_TIME_FS }];
+}
+
 // Baseball pregame keys on the stacked layout. Doubleheaders put the game number
 // on the day line: "Game 2" on game day, "Sat G2" / "Sat 10/24 G2" on a later day.
 function baseballPregameLines(game, last) {
@@ -1460,6 +1496,7 @@ function baseballPregameLines(game, last) {
         day = !day ? 'Game ' + g.replace(/^G/, '') : (day.includes(' ') ? day : day.slice(0, 3)) + ' ' + g;
     }
     if (typeof last === 'function') return pregameLines(away, home, false, null, null, last(when, day));
+    if (game.spring && !last) return pregameLines(away, home, false, null, null, springDayLines(game, when));
     return pregameLines(away, home, false, day, when.time, last);
 }
 
@@ -1630,7 +1667,8 @@ async function flashKey(context, color, lines, spacing, restColor = 'black', car
 //    side by side, each with its own background color.
 //  • A board shows every game in its league "today" (2am rollover, same as the
 //    team keys) in start-time order; on a day with no games, the next game day
-//    within a week, with the day on each key.
+//    within two weeks, with the day on each key. Nothing in two weeks = offseason:
+//    the first key shows the league and "Offseason", the rest go blank.
 //  • More games than keys → the last key shows "+N more"; extra keys "No Game".
 //  • Score flash in the scoring team's parent-org color (white for clubs with no
 //    MLB parent) + runs card; fireworks at the final. Per-key memory carries the
@@ -1862,7 +1900,7 @@ async function fetchBoardDayNow(st, key) {
                    : pickSlate(await cachedJson(url('&startDate=' + addDays(today, -1) + '&endDate=' + addDays(today, 1))), today);
     let futureDay = false;
     if (!(data?.dates || []).some(d => (d.games || []).length)) {
-        data = await cachedJson(url('&startDate=' + addDays(today, 1) + '&endDate=' + addDays(today, 7)));
+        data = await cachedJson(url('&startDate=' + addDays(today, 1) + '&endDate=' + addDays(today, 14)));
         const first = (data?.dates || []).find(d => (d.games || []).length);
         data = { dates: first ? [first] : [] };
         futureDay = true;
@@ -1923,6 +1961,7 @@ async function refreshBoard() {
                 let games = day.games.slice();
                 if (st.finalsLast) games = [...games.filter(g => g.state !== 'final'), ...games.filter(g => g.state === 'final')];
                 for (const ctx of sorted) boardOverflow.delete(ctx);
+                if (!games.length) { sorted.forEach((ctx, i) => renderBoardOffseason(ctx, i === 0, st)); continue; }
                 const over  = games.length > sorted.length;
                 const slots = over ? sorted.length - 1 : sorted.length;
                 for (let i = 0; i < slots; i++) renderBoardKey(sorted[i], games[i] || null, st);
@@ -1938,6 +1977,16 @@ async function refreshBoard() {
     } catch (err) {
         log('Scoreboard error:', err.message);
     }
+}
+
+// Offseason board: the first key names the league over "Offseason"; the others are blank
+// (a press still refreshes and opens the league's scores page, like "No Game").
+function renderBoardOffseason(context, first, st) {
+    if (flashing.has(context)) return;
+    boardSlotGame.set(context, null);
+    boardMemory.delete(context);
+    const lines = first ? offseasonLines(BOARD_ERR_LABELS[String(st.level)] || 'MLB') : [{ text: '', fs: 16 }];
+    setKey(context, lines, 1.4, resolveBgColor(st));
 }
 
 function renderBoardKey(context, game, st) {
