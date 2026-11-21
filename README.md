@@ -4,7 +4,7 @@
 
 From Rookie ball to the Majors, plus the summer, fall and winter leagues, keep tabs on your favorite baseball teams right on your Stream Deck. Put a team on a key, or build out a whole scoreboard across your keys. Everything updates automatically.
 
-![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-2.0.0.1-green) [![Elgato Marketplace](https://img.shields.io/badge/Elgato-Marketplace-black)](https://marketplace.elgato.com/product/live-mlb-scores-fbafac13-4e61-4452-b677-5e60fea52639)
+![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-2.0.1.0-green) [![Elgato Marketplace](https://img.shields.io/badge/Elgato-Marketplace-black)](https://marketplace.elgato.com/product/live-mlb-scores-fbafac13-4e61-4452-b677-5e60fea52639)
 
 > **2.0 is in pre-release.** The Elgato Marketplace still has version 1.0.33 until 2.0 is approved. Want to try 2.0 now? Grab **`Live MLB Scores.streamDeckPlugin`** from the [Releases](../../releases) page. Your existing Live MLB Scores keys keep their team and settings when you upgrade.
 
@@ -33,11 +33,13 @@ Live MLB Scores 2.0 combines and expands upon **Live MLB Scores**, **Live MiLB S
 
 - **Live scores.** Both scores, the inning with an up or down arrow, and the outs as two dots.
 - **Before the game.** The two teams stacked (`ATL` over `@ NYM`) with the start time.
-- **Off days.** No dead-end "No Game" here. The key shows your team's next game with its day and time.
+- **Off days.** No dead-end "No Game" here. The key shows your team's next game with its day and time. If there's nothing in the next two weeks, the key shows your team over "Offseason", and a press opens its schedule.
 - **Final scores.** The final with a "Final" label, plus fireworks across the key in the winner's color. Minor-league teams use their MLB parent club's color, and any team without a color on file gets gold.
 - **Run flash.** The key blinks in the scoring team's color, then shows who scored.
 - **Press to watch or follow.** Press a key to open the game on Gameday, in a stream where one's available, or on any link you like (your regional sports network, for example).
 - **Doubleheaders.** You'll see Game 1, then Game 2. Double-click the key to peek at the other game.
+- **Spring training.** Upcoming spring training and exhibition games get a green `ST` day line (`ST Thu 2/26`, `ST Today`).
+- **Split-squad days.** When your team plays two spring games at once, the key shows both on a header card, each matchup over its start time, outs and inning, or Final. Double-tap to step through the header, game 1 and game 2; the key stays where you leave it. A single tap opens the game you're looking at (it does nothing on the header). Run flashes and fireworks work for both games.
 - **Status labels.** `PPD`, `CANC`, `SUSP`, `RESUME`, `DELAY` and `WARMUP` show up right next to the teams.
 - **All-Star Game.** During the break, the key shows the All-Star Game itself.
 - **Search.** Type a team, city or abbreviation and jump straight to it.
@@ -99,7 +101,7 @@ The **Live MLB Scoreboard** action turns a group of keys into one scoreboard for
 2. Under **League or Level**, pick MLB or any other league above.
 3. Add more Scoreboard keys. Every Scoreboard key with the same settings joins the same board, even if the keys don't touch, and the games fill in the order you choose.
 
-Each game gets its own key, in start-time order, with the same run flashes and final-score fireworks as a team key. If a league has no games today, the board shows its next game day within the week.
+Each game gets its own key, in start-time order, with the same run flashes and final-score fireworks as a team key. If a league has no games today, the board shows its next game day within the next two weeks. With nothing in that window, the first key shows the league over "Offseason" and the rest stay blank.
 
 A few handy options:
 
@@ -117,6 +119,13 @@ A few handy options:
 
 ## Recent Updates
 
+**v2.0.1.0**
+- Offseason: when your team has nothing scheduled in the next two weeks, its key shows the team over "Offseason" instead of "No Game". A press still opens the team's schedule
+- Scoreboard: on a day with no games, the board now looks up to two weeks ahead for the next game day (was one week). With nothing in that window, the first Scoreboard key shows the league over "Offseason" and the rest go blank; a press still opens the league's scores page
+- Spring training: upcoming spring training and exhibition games get a green ST day line ("ST Thu 2/26", or "ST Today" on game day)
+- Split-squad days: when your team plays two spring games at once, its key shows both on a header card, each matchup over its start time, outs and inning, or Final. Double-tap to step from the header to game 1, game 2 and back to the header; the key stays where you leave it. A single tap does nothing on the header and opens the game on a game view. Run flashes and fireworks work for both games
+- Fixed: a team key no longer flashes a false run when it moves from one game to another that's already in progress
+
 **v2.0.0.1**
 - Australian Baseball League keys now follow Sydney time. The day turns over at 5:00 AM in Sydney (about 1:00 PM Eastern), so the morning's finals stay up through the US morning, then the keys show that night's games with their start times instead of waiting until they go live. Every other league still rolls over at 5:00 AM Eastern
 
@@ -125,12 +134,6 @@ A few handy options:
 - New leagues: Rookie ball (ACL, FCL, DSL), the Arizona Fall League, the Australian Baseball League, the Caribbean winter leagues (LIDOM, LMP, LBPRC, LVBP), the Caribbean Series, and the MLB Draft, Cape Cod and Appalachian leagues
 - New **Live MLB Scoreboard** action: fill a group of keys with a whole day's games for any league
 - Existing Live MLB Scores keys keep their team and settings when you upgrade
-
-**v1.0.33.0**
-- Fixed: "today" is now read in Eastern time, which is how MLB dates its schedule. Outside the US the keys could ask for tomorrow's slate while tonight's games were still on. The day now changes at 5:00 AM Eastern (2:00 AM Pacific), so late games and their finals stay on the keys overnight everywhere
-- Far fewer requests: all your keys now share one request for the day's schedule instead of every key asking for its own team
-- If MLB's data stops responding for a moment, keys keep showing the last scores with a small amber dot instead of "Err" (after 10 minutes without an update they show "Err")
-- Now runs on Node.js 24 and needs Stream Deck 7.1 or later (Elgato is retiring Node.js 20)
 
 Older updates: see the full version history in [CHANGELOG.md](CHANGELOG.md).
 
@@ -214,6 +217,12 @@ ATL
 @ NYM
 Thursday
 7:10 PM
+```
+
+**Offseason** (nothing scheduled in the next two weeks):
+```
+ATL
+Offseason
 ```
 
 **Postponed:** the teams with a red `PPD`. Canceled games show `CANC`, suspended games show `SUSP`, and a resumed game shows `RESUME` with the time it picks back up.
