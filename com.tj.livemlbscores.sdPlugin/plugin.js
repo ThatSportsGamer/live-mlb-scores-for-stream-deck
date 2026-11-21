@@ -195,7 +195,7 @@ class SimpleWS extends events.EventEmitter {
 
 // ── Plugin state ──────────────────────────────────────────────────────────────
 const instances     = new Map(); // context -> settings
-const prevScores    = new Map(); // context -> { awayRuns, homeRuns }
+const prevScores    = new Map(); // context -> { gamePk, awayRuns, homeRuns }
 const prevState     = new Map(); // context -> last known game state string
 const flashing      = new Set();
 const refreshing    = new Set();
@@ -420,8 +420,10 @@ async function refreshKey(context) {
         // Detect score change and flash
         const prev = prevScores.get(context);
         if (game && game.state === 'live') {
-            prevScores.set(context, { awayRuns: game.awayRuns, homeRuns: game.homeRuns });
-            if (prev) {
+            prevScores.set(context, { gamePk: game.gamePk, awayRuns: game.awayRuns, homeRuns: game.homeRuns });
+            // Same game only: on a split-squad day both games are live at once, and the key jumps
+            // from G1 straight to a live G2 when G1 ends; comparing across games would false-flash.
+            if (prev && prev.gamePk === game.gamePk) {
                 const awayScored = game.awayRuns > prev.awayRuns;
                 const homeScored = game.homeRuns > prev.homeRuns;
                 if (awayScored || homeScored) {
