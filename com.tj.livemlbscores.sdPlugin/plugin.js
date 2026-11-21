@@ -411,7 +411,7 @@ async function refreshKey(context) {
 
     const cfg = instances.get(context);
     if (!cfg || !cfg.teamId) {
-        setKey(context, ['Select A', 'Team In', 'Settings']);
+        setKey(context, ['Select a', 'Team in', 'Settings']);
         return;
     }
 
@@ -2081,7 +2081,7 @@ async function refreshBoard() {
         for (const [ctx, k] of boardKeys) {
             if (k.settings.unset) {   // no source chosen yet: prompt, and stay out of every board
                 keyDeps.delete(ctx); boardSlotGame.delete(ctx); boardMemory.delete(ctx); boardOverflow.delete(ctx);
-                if (!flashing.has(ctx)) setKey(ctx, ['Select A', 'League In', 'Settings'], undefined, resolveBgColor(k.settings));
+                if (!flashing.has(ctx)) setKey(ctx, ['Select a', 'League in', 'Settings'], undefined, resolveBgColor(k.settings));
                 continue;
             }
             const id = k.device + '#' + boardSig(k.settings);
@@ -2138,7 +2138,7 @@ function renderBoardKey(context, game, st) {
     const k = boardKeys.get(context);
     st = st || (k ? k.settings : boardCfg({}));
     const bg = resolveBgColor(st);
-    if (st.unset) { setKey(context, ['Select A', 'League In', 'Settings'], undefined, bg); return; }
+    if (st.unset) { setKey(context, ['Select a', 'League in', 'Settings'], undefined, bg); return; }
     boardSlotGame.set(context, game);
     if (!game) { boardMemory.delete(context); setKey(context, ['No', 'Game'], undefined, bg); return; }
 

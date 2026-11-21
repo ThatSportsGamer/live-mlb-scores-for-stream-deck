@@ -334,7 +334,7 @@
     <label for="linkType">Key Press Opens</label>
     <select id="linkType">
         <option value="gameday">MiLB Gameday (free)</option>
-        <option value="tv">MiLB.tv (subscription)</option>
+        <option value="tv">MiLB.TV (subscription)</option>
         <option value="custom">Custom Link</option>
     </select>
     <div id="streamHint" style="display:none;font-size:11px;color:#888;line-height:1.5;margin-top:6px;"></div>
@@ -392,17 +392,17 @@
             { key: '13',    label: 'High-A',                   tag: 'A+' },
             { key: '14',    label: 'Single-A',                 tag: 'A' },
             { key: '16',    label: 'Rookie (ACL, FCL, DSL)',   tag: 'ROK' } ] },
-        { label: 'Summer College & Draft (Jun–Aug)', levels: [
+        { label: 'Summer College and Draft (June–August)', levels: [
             { key: 'L5536', label: 'MLB Draft League',         tag: 'MLBDL' },
             { key: 'L565',  label: 'Cape Cod League',          tag: 'CCBL' },
             { key: 'L120',  label: 'Appalachian League',       tag: 'APPY' } ] },
-        { label: 'Fall & Winter (Oct–Feb)', levels: [
+        { label: 'Fall and Winter (October–February)', levels: [
             { key: 'L119', label: 'Arizona Fall League (AFL)', tag: 'AFL' },
             { key: 'L595', label: 'Australian Baseball League (ABL)', tag: 'ABL' },
-            { key: 'L131', label: 'Dominican Winter League (LIDOM)', tag: 'LIDOM' },
-            { key: 'L132', label: 'Mexican Winter League (LMP)', tag: 'LMP' },
-            { key: 'L133', label: 'Puerto Rican Winter League (LBPRC)', tag: 'LBPRC' },
-            { key: 'L135', label: 'Venezuelan Winter League (LVBP)', tag: 'LVBP' },
+            { key: 'L131', label: 'Dominican winter league (LIDOM)', tag: 'LIDOM' },
+            { key: 'L132', label: 'Mexican Pacific League (LMP)', tag: 'LMP' },
+            { key: 'L133', label: 'Puerto Rican winter league (LBPRC)', tag: 'LBPRC' },
+            { key: 'L135', label: 'Venezuelan winter league (LVBP)', tag: 'LVBP' },
             { key: 'L162', label: 'Caribbean Series', tag: 'CS' } ] }
     ];
     var LEVELS = {}, LEVEL_ORDER = {};
@@ -895,7 +895,7 @@
     }
 
     // ─── Settings: save ───────────────────────────────────────────────────────
-    // The stream option is MiLB.tv for MiLB clubs, but AFL games stream free on MLB.com
+    // The stream option is MiLB.TV for MiLB clubs, but AFL games stream free on MLB.com
     function updateStreamOptionLabel() {
         var teamId = parseInt(document.getElementById('teamSelect').value, 10);
         var team   = allTeams.filter(function(t) { return t.id === teamId; })[0];
@@ -908,7 +908,7 @@
         var hint   = document.getElementById('streamHint');
         document.querySelector('#linkType option[value="gameday"]').textContent = isMlbCom ? 'MLB Gameday (free)' : 'MiLB Gameday (free)';
         tvOpt.textContent = noStream ? 'Live stream (not available for this league)'
-                          : isAFL ? 'AFL Live Stream (free on MLB.com)' : isMlbCom ? 'MLB.TV (subscription)' : 'MiLB.tv (subscription)';
+                          : isAFL ? 'AFL Live Stream (free on MLB.com)' : isMlbCom ? 'MLB.TV (subscription)' : 'MiLB.TV (subscription)';
         tvOpt.disabled = noStream;
         if (noStream && document.getElementById('linkType').value === 'tv') document.getElementById('linkType').value = 'gameday';
         hint.textContent = noStream ? NO_STREAM_LEAGUES[lid] : '';

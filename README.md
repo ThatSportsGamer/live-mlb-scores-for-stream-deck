@@ -1,8 +1,8 @@
-# Live MLB Scores 2.0 — Stream Deck Plugin
+# Live MLB Scores 2.0: Stream Deck Plugin
 
 ![Live MLB Scores 2.0](assets/LiveMLBScoresThumbnail.png)
 
-From Rookie ball to the Majors, plus the summer, fall and winter leagues, keep tabs on your favorite baseball teams right on your Stream Deck. Put a team on a key, or build out a whole scoreboard across your keys. Everything updates automatically.
+From Rookie ball to the majors, plus the summer, fall, and winter leagues, keep tabs on your favorite baseball teams right on your Stream Deck. Put a team on a key, or build out a whole scoreboard across your keys. Everything updates automatically.
 
 ![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-2.0.1.0-green) [![Elgato Marketplace](https://img.shields.io/badge/Elgato-Marketplace-black)](https://marketplace.elgato.com/product/live-mlb-scores-fbafac13-4e61-4452-b677-5e60fea52639)
 
@@ -15,12 +15,12 @@ From Rookie ball to the Majors, plus the summer, fall and winter leagues, keep t
 
 ## What's New in 2.0
 
-Live MLB Scores 2.0 combines and expands upon **Live MLB Scores**, **Live MiLB Scores** and **Live MLB Scoreboard**.
+Live MLB Scores 2.0 combines and expands upon **Live MLB Scores**, **Live MiLB Scores**, and **Live MLB Scoreboard**.
 
 - **Baseball all year long.** From the start of MLB spring training through the Caribbean Series, Live MLB Scores has a league for you.
-- **Follow an entire organization.** Like in Live MiLB Scores, you can follow a club's minor league affiliates, and now that goes all the way down to their Rookie ball teams, for the hardest of hardcore fans. You can also catch their top prospects in the Arizona Fall League.
-- **Expand your horizons.** We're going international too: the Australian Baseball League, plus the Caribbean winter leagues from the Dominican Republic (LIDOM), Mexico (LMP), Puerto Rico (LBPRC) and Venezuela (LVBP), all leading up to the Caribbean Series.
-- **Amateur leagues too.** The Appalachian League, the historic Cape Cod League and the MLB Draft League are now in Live MLB Scores.
+- **Follow an entire organization.** Like in Live MiLB Scores, you can follow a club's minor-league affiliates, and now that goes all the way down to their Rookie ball teams, for the hardest of hardcore fans. You can also catch their top prospects in the Arizona Fall League.
+- **Expand your horizons.** We're going international too: the Australian Baseball League, plus the Caribbean winter leagues from the Dominican Republic (LIDOM), Mexico (LMP), Puerto Rico (LBPRC), and Venezuela (LVBP), all leading up to the Caribbean Series.
+- **Amateur leagues too.** The Appalachian League, the historic Cape Cod League, and the MLB Draft League are now in Live MLB Scores.
 - **Scoreboard action.** Fill a row or block of keys with a whole day's games for any of the leagues above.
 - **A link for every league.** If a key has no game, or a scoreboard has more games than keys, pressing it takes you to that league's schedule page.
 - **Clearer heads-up when data stalls.** If one league stops updating, only its keys get a small amber dot. The rest carry on as normal.
@@ -37,12 +37,12 @@ Live MLB Scores 2.0 combines and expands upon **Live MLB Scores**, **Live MiLB S
 - **Final scores.** The final with a "Final" label, plus fireworks across the key in the winner's color. Minor-league teams use their MLB parent club's color, and any team without a color on file gets gold.
 - **Run flash.** The key blinks in the scoring team's color, then shows who scored.
 - **Press to watch or follow.** Press a key to open the game on Gameday, in a stream where one's available, or on any link you like (your regional sports network, for example).
-- **Doubleheaders.** You'll see Game 1, then Game 2. Double-click the key to peek at the other game.
+- **Doubleheaders.** You'll see the first game, then the second. Double-click the key to peek at the other game.
 - **Spring training.** Upcoming spring training and exhibition games get a green `ST` day line (`ST Thu 2/26`, `ST Today`).
-- **Split-squad days.** When your team plays two spring games at once, the key shows both on a header card, each matchup over its start time, outs and inning, or Final. Double-tap to step through the header, game 1 and game 2; the key stays where you leave it. A single tap opens the game you're looking at (it does nothing on the header). Run flashes and fireworks work for both games.
-- **Status labels.** `PPD`, `CANC`, `SUSP`, `RESUME`, `DELAY` and `WARMUP` show up right next to the teams.
+- **Split-squad days.** When your team plays two spring games at once, the key shows both on a header card, each matchup over its start time, outs and inning, or Final. Double-tap to step through the header, game one, and game two; the key stays where you leave it. A single tap opens the game you're looking at (it does nothing on the header). Run flashes and fireworks work for both games.
+- **Status labels.** `PPD`, `CANC`, `SUSP`, `RESUME`, `DELAY`, and `WARMUP` show up right next to the teams.
 - **All-Star Game.** During the break, the key shows the All-Star Game itself.
-- **Search.** Type a team, city or abbreviation and jump straight to it.
+- **Search.** Type a team, city, or abbreviation and jump straight to it.
 - **Your colors.** Pick a background color and opacity for one key or a whole board.
 - **No flicker.** Keys only redraw when something actually changes.
 - **As many keys as you want.** Each one updates on its own.
@@ -69,11 +69,11 @@ When the last out is made, the winner gets fireworks. Here's a replay of the las
 
 | Level | Leagues | When |
 |---|---|---|
-| MLB | Major League Baseball, including spring training, the postseason and the All-Star Game | Spring training through the World Series |
+| MLB | Major League Baseball, including spring training, the postseason, and the All-Star Game | Spring training through the World Series |
 | Minor leagues | Triple-A (International, Pacific Coast), Double-A (Eastern, Southern, Texas), High-A (Midwest, Northwest, South Atlantic), Single-A (California, Carolina, Florida State) | April–September, plus the postseason |
 | Rookie | Arizona Complex League (ACL), Florida Complex League (FCL), Dominican Summer League (DSL) | June–August |
 | Summer college and draft | MLB Draft League, Cape Cod League, Appalachian League | June–August |
-| Fall and winter | Arizona Fall League (AFL), Australian Baseball League (ABL), Dominican Winter League (LIDOM), Mexican Winter League (LMP), Puerto Rican Winter League (LBPRC), Venezuelan Winter League (LVBP), Caribbean Series | October–early February (the Caribbean Series is in early February) |
+| Fall and winter | Arizona Fall League (AFL), Australian Baseball League (ABL), Dominican winter league (LIDOM), Mexican Pacific League (LMP), Puerto Rican winter league (LBPRC), Venezuelan winter league (LVBP), Caribbean Series | October–early February (the Caribbean Series is in early February) |
 
 Season dates shift a little from year to year.
 
@@ -97,7 +97,7 @@ A Custom Link or stream kicks in once the game is about to start. Before that, a
 
 The **Live MLB Scoreboard** action turns a group of keys into one scoreboard for a league.
 
-1. Drag the **Live MLB Scoreboard** action onto a key. New keys start out empty and say "Select A League In Settings".
+1. Drag the **Live MLB Scoreboard** action onto a key. New keys start out empty and say "Select a League in Settings".
 2. Under **League or Level**, pick MLB or any other league above.
 3. Add more Scoreboard keys. Every Scoreboard key with the same settings joins the same board, even if the keys don't touch, and the games fill in the order you choose.
 
@@ -123,7 +123,7 @@ A few handy options:
 - Offseason: when your team has nothing scheduled in the next two weeks, its key shows the team over "Offseason" instead of "No Game". A press still opens the team's schedule
 - Scoreboard: on a day with no games, the board now looks up to two weeks ahead for the next game day (was one week). With nothing in that window, the first Scoreboard key shows the league over "Offseason" and the rest go blank; a press still opens the league's scores page
 - Spring training: upcoming spring training and exhibition games get a green ST day line ("ST Thu 2/26", or "ST Today" on game day)
-- Split-squad days: when your team plays two spring games at once, its key shows both on a header card, each matchup over its start time, outs and inning, or Final. Double-tap to step from the header to game 1, game 2 and back to the header; the key stays where you leave it. A single tap does nothing on the header and opens the game on a game view. Run flashes and fireworks work for both games
+- Split-squad days: when your team plays two spring games at once, its key shows both on a header card, each matchup over its start time, outs and inning, or Final. Double-tap to step from the header to game one, game two, and back to the header; the key stays where you leave it. A single tap does nothing on the header and opens the game on a game view. Run flashes and fireworks work for both games
 - Fixed: a team key no longer flashes a false run when it moves from one game to another that's already in progress
 
 **v2.0.0.1**
@@ -163,7 +163,7 @@ Older updates: see the full version history in [CHANGELOG.md](CHANGELOG.md).
 
 ## Coming From the Other Plugins
 
-**Already using Live MLB Scores 1.x?** Just install 2.0 over it. Your keys keep their team, the Key Press Opens choice, the Custom Link and the background, so there's nothing to set up again.
+**Already using Live MLB Scores 1.x?** Just install 2.0 over it. Your keys keep their team, the Key Press Opens choice, the Custom Link, and the background, so there's nothing to set up again.
 
 **Using Live MiLB Scores or Live MLB Scoreboard?** 2.0 replaces both, but your keys won't move over on their own. For each key:
 
@@ -178,7 +178,7 @@ You can keep the old plugins installed while you switch. They won't get in 2.0's
 ## Setup
 
 1. Drag the **Live MLB Scores** action onto any key.
-2. Search for your team, or browse by league or MLB organization, then level, league and team.
+2. Search for your team, or browse by league or MLB organization, then level, league, and team.
 3. Choose what a press opens: Gameday, a stream where one's available, or a Custom Link.
 4. If you like, pick a background color.
 

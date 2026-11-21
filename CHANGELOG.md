@@ -6,7 +6,7 @@ Full version history for Live MLB Scores, newest first. The [README](README.md) 
 - Offseason: when your team has nothing scheduled in the next two weeks, its key shows the team over "Offseason" instead of "No Game". A press still opens the team's schedule
 - Scoreboard: on a day with no games, the board now looks up to two weeks ahead for the next game day (was one week). With nothing in that window, the first Scoreboard key shows the league over "Offseason" and the rest go blank; a press still opens the league's scores page
 - Spring training: upcoming spring training and exhibition games get a green ST day line ("ST Thu 2/26", or "ST Today" on game day)
-- Split-squad days: when your team plays two spring games at once, its key shows both on a header card, each matchup over its start time, outs and inning, or Final. Double-tap to step from the header to game 1, game 2 and back to the header; the key stays where you leave it. A single tap does nothing on the header and opens the game on a game view. Run flashes and fireworks work for both games
+- Split-squad days: when your team plays two spring games at once, its key shows both on a header card, each matchup over its start time, outs and inning, or Final. Double-tap to step from the header to game one, game two, and back to the header; the key stays where you leave it. A single tap does nothing on the header and opens the game on a game view. Run flashes and fireworks work for both games
 - Fixed: a team key no longer flashes a false run when it moves from one game to another that's already in progress
 
 **v2.0.0.1**

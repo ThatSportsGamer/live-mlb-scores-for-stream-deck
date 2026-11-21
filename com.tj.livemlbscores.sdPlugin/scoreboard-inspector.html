@@ -103,15 +103,15 @@
         { label: 'Minor Leagues', levels: [
             { key: '11', label: 'Triple-A' }, { key: '12', label: 'Double-A' }, { key: '13', label: 'High-A' },
             { key: '14', label: 'Single-A' }, { key: '16', label: 'Rookie (ACL, FCL, DSL)' } ] },
-        { label: 'Summer College & Draft (Jun–Aug)', levels: [
+        { label: 'Summer College and Draft (June–August)', levels: [
             { key: 'L5536', label: 'MLB Draft League' }, { key: 'L565', label: 'Cape Cod League' }, { key: 'L120', label: 'Appalachian League' } ] },
-        { label: 'Fall & Winter (Oct–Feb)', levels: [
+        { label: 'Fall and Winter (October–February)', levels: [
             { key: 'L119', label: 'Arizona Fall League (AFL)' },
             { key: 'L595', label: 'Australian Baseball League (ABL)' },
-            { key: 'L131', label: 'Dominican Winter League (LIDOM)' },
-            { key: 'L132', label: 'Mexican Winter League (LMP)' },
-            { key: 'L133', label: 'Puerto Rican Winter League (LBPRC)' },
-            { key: 'L135', label: 'Venezuelan Winter League (LVBP)' },
+            { key: 'L131', label: 'Dominican winter league (LIDOM)' },
+            { key: 'L132', label: 'Mexican Pacific League (LMP)' },
+            { key: 'L133', label: 'Puerto Rican winter league (LBPRC)' },
+            { key: 'L135', label: 'Venezuelan winter league (LVBP)' },
             { key: 'L162', label: 'Caribbean Series' } ] }
     ];
     var MINOR_SPORTS = [11, 12, 13, 14, 16];
@@ -190,7 +190,7 @@
         var noStream = !!NO_STREAM[lid], mlbcom = !!MLBCOM_LEAGUES[lid] || isMlb;
         var tv = document.querySelector('#linkType option[value="tv"]');
         document.querySelector('#linkType option[value="gameday"]').textContent = mlbcom ? 'MLB Gameday (free)' : 'MiLB Gameday (free)';
-        tv.textContent = noStream ? 'Live stream (not available for this league)' : lid === AFL_LEAGUE_ID ? 'AFL Live Stream (free on MLB.com)' : mlbcom ? 'MLB.TV (subscription)' : 'MiLB.tv (subscription)';
+        tv.textContent = noStream ? 'Live stream (not available for this league)' : lid === AFL_LEAGUE_ID ? 'AFL Live Stream (free on MLB.com)' : mlbcom ? 'MLB.TV (subscription)' : 'MiLB.TV (subscription)';
         tv.disabled = noStream;
         if (noStream && $('linkType').value === 'tv') $('linkType').value = 'gameday';
         $('streamHint').style.display = noStream ? 'block' : 'none';
