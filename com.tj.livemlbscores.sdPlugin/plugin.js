@@ -213,6 +213,13 @@ const singleClickTimers = new Map(); // context -> timeoutId for pending single-
 const DOUBLE_CLICK_MS   = 300;       // two taps within this window = double-click
 const DH_REVERT_MS      = 15_000;    // auto-revert to active game after 15 s
 
+// ── Split-squad days (spring training: two games at once, not a doubleheader) ──
+// The key shows a header card with both games; a double-tap steps header → game 1 →
+// game 2 → header. No auto-return. A single tap on the header does nothing; on a
+// game it opens that game, like any key.
+const ssView = new Map(); // context -> 0 header, 1 game 1, 2 game 2
+const ssPrev = new Map(); // context -> { [gamePk]: { state, awayRuns, homeRuns } }
+
 // ── Connect to Stream Deck ────────────────────────────────────────────────────
 log('Connecting to Stream Deck on port', sdPort);
 const ws = new SimpleWS(sdPort);
@@ -265,6 +272,8 @@ function handleEvent(ev) {
             clearTimeout(singleClickTimers.get(context));
             singleClickTimers.delete(context);
             lastKeyUpTime.delete(context);
+            ssView.delete(context);
+            ssPrev.delete(context);
             if (refreshTimers.has(context)) {
                 clearInterval(refreshTimers.get(context));
                 refreshTimers.delete(context);
@@ -285,6 +294,32 @@ function handleEvent(ev) {
             const now       = Date.now();
             const last      = lastKeyUpTime.get(context) || 0;
             lastKeyUpTime.set(context, now);
+
+            if (game && game.state === 'splitsquad') {
+                if (now - last < DOUBLE_CLICK_MS) {
+                    clearTimeout(singleClickTimers.get(context));
+                    singleClickTimers.delete(context);
+                    lastKeyUpTime.delete(context);   // a third tap starts a new pair
+                    const view = ((ssView.get(context) || 0) + 1) % 3;
+                    ssView.set(context, view);
+                    log('Split squad double-click — view', view);
+                    lastRender.delete(context);
+                    drawSplitSquad(context, cfg, game);
+                } else {
+                    clearTimeout(singleClickTimers.get(context));
+                    singleClickTimers.set(context, setTimeout(() => {
+                        singleClickTimers.delete(context);
+                        const g = currentGame.get(context);
+                        const v = ssView.get(context) || 0;
+                        const target = v > 0 && g && g.ss ? g.ss[v - 1] : null;
+                        if (!target || !target.gamePk) return;   // header: nothing to open
+                        let link = cfg && cfg.linkType;
+                        if ((link === 'tv' || link === 'custom') && target.state === 'final') link = 'gameday';
+                        openGameUrl(target, link, cfg, 'split squad keyUp');
+                    }, DOUBLE_CLICK_MS + 50));
+                }
+                break;
+            }
 
             if (otherGame && now - last < DOUBLE_CLICK_MS) {
                 // ── Double-click on a doubleheader: toggle other-game view ──
@@ -392,6 +427,15 @@ async function refreshKey(context) {
         currentGame.set(context, game || null);
         dhOtherGame.set(context, game?.otherGame || null);
         if (!game || game.state !== 'final') gameFinalAt.delete(context);
+        if (game && game.state === 'splitsquad') {
+            prevState.set(context, 'splitsquad');
+            prevScores.delete(context);
+            refreshing.delete(context);
+            presentSplitSquad(context, cfg, game);
+            return;
+        }
+        ssView.delete(context);
+        ssPrev.delete(context);
 
         // Detect live → final transition and play fireworks
         const prevGameState = prevState.get(context);
@@ -1021,12 +1065,25 @@ const NEXT_GAME_TTL_MS = 5 * 60_000; // off-day lookups: the schedule rarely cha
 // ── MLB clubs: ONE all-teams schedule request shared by every key (as in Live MLB Scores 1.0.33) ──
 async function fetchTodayMlbGame(teamId) {
     const date = scheduleDate();
-    const data = await cachedJson(SCHEDULE_URL + '?sportId=1&date=' + date + '&hydrate=linescore');
+    const data = debugSchedule() || await cachedJson(SCHEDULE_URL + '?sportId=1&date=' + date + '&hydrate=linescore');
     const game = parseSchedule(teamSlice(data, teamId), true);
     if (game) return game;
     // No game for this team today — on the All-Star break itself, show the All-Star Game instead
     try { const asg = await fetchAllStarGame(date); if (asg) return asg; } catch (e) { /* fall through to next game */ }
     try { return await fetchNextMlbGame(teamId, date); } catch (e) { return null; }
+}
+
+// Hardware testing only: a debug-schedule.json dropped into the installed plugin folder
+// replaces today's MLB schedule for team keys (read on every refresh, so edits show up
+// within 30 s). Never shipped: the file isn't in the repo or the installer.
+const DEBUG_SCHEDULE_FILE = path.join(__dirname, 'debug-schedule.json');
+function debugSchedule() {
+    try {
+        if (!fs.existsSync(DEBUG_SCHEDULE_FILE)) return null;
+        const data = JSON.parse(fs.readFileSync(DEBUG_SCHEDULE_FILE, 'utf8'));
+        logQuiet('debug-schedule', 'Using debug-schedule.json for team keys');
+        return Array.isArray(data?.dates) ? data : null;
+    } catch (e) { log('debug-schedule.json unreadable:', e.message); return null; }
 }
 
 // The day's schedule reduced to one team's games (a doubleheader keeps both).
@@ -1161,6 +1218,7 @@ function teamInfo(t, mlb) {
 }
 
 function parseSchedule(data, mlb) {
+    if (mlb) { const ss = splitSquadDay(data); if (ss) return ss; }
     const game = parseScheduleCore(data, !!mlb);
     if (game) {
         game.isMLB = !!mlb;
@@ -1172,6 +1230,21 @@ function parseSchedule(data, mlb) {
 
 // Spring training (S) and exhibition (E) games: their upcoming keys get a green "ST" day line.
 const isSpringGame = g => g?.gameType === 'S' || g?.gameType === 'E';
+
+// A split-squad day: one team, two spring games on one date that the schedule does NOT mark
+// as a doubleheader (doubleHeader 'N', both gameNumber 1; checked against the 2027 schedule).
+// Returns { state: 'splitsquad', ss: [game1, game2] } in start-time order, or null.
+function splitSquadDay(data) {
+    const d  = data?.dates?.[0];
+    const gs = d?.games || [];
+    if (gs.length !== 2) return null;
+    if (!gs.every(g => isSpringGame(g) && g.doubleHeader !== 'Y' && g.doubleHeader !== 'S')) return null;
+    const ss = gs.map(g => parseSchedule({ ...data, dates: [{ ...d, games: [g] }] }, true));
+    if (!ss[0] || !ss[1]) return null;
+    const t = x => Date.parse(x.startUtc || '') || 0;
+    ss.sort((a, b) => t(a) - t(b) || a.gamePk - b.gamePk);
+    return { state: 'splitsquad', isMLB: true, spring: true, ss };
+}
 
 function parseScheduleCore(data, mlb) {
     try {
@@ -1484,6 +1557,75 @@ function springDayLines(game, when) {
     const w  = preWidth(label, PRE_DAY_FS);
     const fs = w > PRE_MAX_W ? Math.max(9, Math.floor(PRE_DAY_FS * PRE_MAX_W / w * 2) / 2) : PRE_DAY_FS;
     return [{ text: label, fs, color: ST_COLOR }, { text: when.time, fs: PRE_TIME_FS }];
+}
+
+// Split-squad header card: each game's matchup over its status (no scores — they'd
+// shrink everything; a double-tap shows a game at full size).
+function splitSquadHeaderLines(game) {
+    const lines = [];
+    for (const g of game.ss) {
+        const m = g.matchup || ((g.awayAbbr || '') + ' @ ' + (g.homeAbbr || ''));
+        let fs = 12.5;
+        while (fs > 9 && preWidth(m, fs) > PRE_MAX_W) fs -= 0.5;
+        lines.push({ text: m, fs }, splitSquadStatus(g));
+    }
+    lines.spacing = 1.1;
+    return lines;
+}
+function splitSquadStatus(g) {
+    switch (g.state) {
+        case 'live':       return liveInnLine(g.outs, g.half + g.inn);
+        case 'delay-live': return { text: 'DELAY',  fs: 11, color: '#3498DB' };
+        case 'final':      return { text: 'Final',  fs: 11, color: '#FFD700' };
+        case 'ppd':        return { text: g.canceled ? 'CANC' : 'PPD', fs: 11, color: '#E74C3C' };
+        case 'susp':       return { text: 'SUSP',   fs: 11, color: '#E74C3C' };
+        case 'delay':      return { text: 'DELAY',  fs: 11, color: '#3498DB' };
+        case 'warmup':     return { text: 'WARMUP', fs: 11, color: '#2ECC71' };
+        default:           return { text: 'ST ' + (g.time || ''), fs: 11, color: ST_COLOR };
+    }
+}
+function splitSquadViewLines(game, view, cfg) {
+    const g = view > 0 ? game.ss[view - 1] : null;
+    return g ? buildLines(g, cfg) : splitSquadHeaderLines(game);
+}
+function drawSplitSquad(context, cfg, game) {
+    const lines   = splitSquadViewLines(game, ssView.get(context) || 0, cfg);
+    const spacing = lines.spacing || (lines.some(l => typeof l === 'object') ? 1.2 : 1.4);
+    setKey(context, lines, spacing, resolveBgColor(cfg));
+}
+// Each poll: score flash (with that game's runs card) or fireworks for whichever game
+// changed, whatever view is up; the view stays where the user left it.
+function presentSplitSquad(context, cfg, game) {
+    const prev = ssPrev.get(context) || {};
+    const next = {};
+    let flash = null, boom = null;
+    for (const g of game.ss) {
+        next[g.gamePk] = { state: g.state, awayRuns: g.awayRuns, homeRuns: g.homeRuns };
+        const p = prev[g.gamePk];
+        if (!p || p.state !== 'live') continue;
+        if (g.state === 'final') { boom = boom || g; continue; }
+        if (g.state !== 'live') continue;
+        const a = g.awayRuns > p.awayRuns, h = g.homeRuns > p.homeRuns;
+        if ((a || h) && !flash) flash = { g, a, h, p };
+    }
+    ssPrev.set(context, next);
+    if (boom) {
+        const homeWon = boom.homeRuns >= boom.awayRuns;
+        log('Split squad game over — fireworks for', homeWon ? boom.homeName : boom.awayName);
+        playFireworks(context, homeWon ? boom.homeName : boom.awayName, teamColor(homeWon ? boom.homeId : boom.awayId)).catch(e => log('fireworks error:', e.message));
+        return;
+    }
+    const lines   = splitSquadViewLines(game, ssView.get(context) || 0, cfg);
+    const spacing = lines.spacing || (lines.some(l => typeof l === 'object') ? 1.2 : 1.4);
+    if (flash) {
+        const { g, a, h, p } = flash;
+        const color = (a && h) ? '#FFFFFF' : teamColor(a ? g.awayId : g.homeId);
+        const card  = (a && h) ? null : a ? runsCardLines(g.awayAbbr, g.awayRuns - p.awayRuns) : runsCardLines(g.homeAbbr, g.homeRuns - p.homeRuns);
+        log('Split squad score change ' + g.matchup + ' — flashing', color);
+        flashKey(context, color, lines, spacing, resolveBgColor(cfg), card).catch(e => log('flashKey error:', e.message));
+        return;
+    }
+    setKey(context, lines, spacing, resolveBgColor(cfg));
 }
 
 // Baseball pregame keys on the stacked layout. Doubleheaders put the game number
