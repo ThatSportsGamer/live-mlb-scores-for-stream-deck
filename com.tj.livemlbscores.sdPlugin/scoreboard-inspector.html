@@ -60,6 +60,7 @@
 <select id="linkType">
     <option value="gameday">MLB Gameday (free)</option>
     <option value="tv">MLB.TV (subscription)</option>
+    <option value="bplus" hidden>Baseball+ (ABL's own stream)</option>
 </select>
 <div class="hint" id="streamHint" style="display:none;"></div>
 
@@ -124,7 +125,6 @@
     var NO_STREAM = {
         135: "No stream link for this league.",
         133: "No stream link for this league.",
-        595: "No stream link for this league.",
         162: "No stream link for this league.",
         121: "No stream link for this league.",
         124: "No stream link for this league.",
@@ -193,8 +193,13 @@
         tv.textContent = noStream ? 'Live stream (not available for this league)' : lid === AFL_LEAGUE_ID ? 'AFL Live Stream (free on MLB.com)' : mlbcom ? 'MLB.TV (subscription)' : 'MiLB.TV (subscription)';
         tv.disabled = noStream;
         if (noStream && $('linkType').value === 'tv') $('linkType').value = 'gameday';
-        $('streamHint').style.display = noStream ? 'block' : 'none';
-        $('streamHint').textContent = noStream ? NO_STREAM[lid] : '';
+        // ABL only: a second stream option, the league's own Baseball+ site
+        var isABL = lid === 595, bp = document.querySelector('#linkType option[value="bplus"]');
+        bp.hidden = !isABL; bp.disabled = !isABL;
+        if (!isABL && $('linkType').value === 'bplus') $('linkType').value = 'gameday';
+        var note = noStream ? NO_STREAM[lid] : isABL ? "MLB.TV and Baseball+ both carry ABL games. Baseball+ needs an ABL or team pass, except for its free games." : '';
+        $('streamHint').style.display = note ? 'block' : 'none';
+        $('streamHint').textContent = note;
     }
 
     // How many keys share this key's board (sent by the plugin when the panel opens and after a change).
@@ -216,7 +221,7 @@
             $('level').value = level;
             fillLeagues(level, current.leagueId || 0);
         }
-        $('linkType').value  = current.linkType === 'tv' ? 'tv' : 'gameday';
+        $('linkType').value  = current.linkType === 'tv' || current.linkType === 'bplus' ? current.linkType : 'gameday';
         $('sortOrder').value = current.sortOrder || 'column';
         $('finalsLast').checked = !!current.finalsLast;
         var on = !!current.bgColor;

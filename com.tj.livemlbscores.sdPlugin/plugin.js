@@ -314,7 +314,7 @@ function handleEvent(ev) {
                         const target = v > 0 && g && g.ss ? g.ss[v - 1] : null;
                         if (!target || !target.gamePk) return;   // header: nothing to open
                         let link = cfg && cfg.linkType;
-                        if ((link === 'tv' || link === 'custom') && target.state === 'final') link = 'gameday';
+                        if ((link === 'tv' || link === 'custom' || link === 'bplus') && target.state === 'final') link = 'gameday';
                         openGameUrl(target, link, cfg, 'split squad keyUp');
                     }, DOUBLE_CLICK_MS + 50));
                 }
@@ -356,7 +356,7 @@ function handleEvent(ev) {
                     if (target && target.gamePk) {
                         const cfgLink = cfg && cfg.linkType;
                         let effectiveLink = cfgLink;
-                        if ((cfgLink === 'tv' || cfgLink === 'custom') && target.state === 'final') {
+                        if ((cfgLink === 'tv' || cfgLink === 'custom' || cfgLink === 'bplus') && target.state === 'final') {
                             const isActive = target === game;
                             const ft = isActive ? gameFinalAt.get(context) : null;
                             if (!ft || Date.now() - ft > 30 * 60 * 1000) effectiveLink = 'gameday';
@@ -374,7 +374,7 @@ function handleEvent(ev) {
                 if (game && game.gamePk) {
                     const cfgLink = cfg && cfg.linkType;
                     let effectiveLink = cfgLink;
-                    if ((cfgLink === 'tv' || cfgLink === 'custom') && game.state === 'final') {
+                    if ((cfgLink === 'tv' || cfgLink === 'custom' || cfgLink === 'bplus') && game.state === 'final') {
                         const ft = gameFinalAt.get(context);
                         if (!ft || Date.now() - ft > 30 * 60 * 1000) effectiveLink = 'gameday';
                     }
@@ -740,6 +740,8 @@ function buildGameUrl(game, linkType, teamId, customUrl) {
         // MLB.TV's /tv/g<gamePk> player says "not available" for winter games; their streams
         // are featured MLB.TV videos — openGameUrl resolves this to the game's own video
         if (linkType === 'tv' && started && !NO_STREAM_LEAGUE_IDS.includes(game.isWinter)) return WINTER_STREAMS_URL;
+        // ABL only: the league's own Baseball+ stream (openGameUrl resolves the game's page)
+        if (linkType === 'bplus' && started && game.isWinter === ABL_LEAGUE_ID) return BPLUS_SCHEDULE_URL;
         if (linkType === 'custom' && started && customUrl) return customUrl;
         return mlbGameday;
     }
@@ -800,6 +802,10 @@ async function openGameUrl(game, linkType, cfg, why) {
     if (url === WINTER_STREAMS_URL) {
         try { url = (await resolveWinterStreamUrl(game)) || WINTER_STREAMS_URL; }
         catch (e) { log('Winter stream lookup failed:', e.message); url = WINTER_STREAMS_URL; }
+    }
+    if (url === BPLUS_SCHEDULE_URL) {
+        try { url = (await resolveBplusStreamUrl(game)) || BPLUS_SCHEDULE_URL; }
+        catch (e) { log('Baseball+ lookup failed:', e.message); url = BPLUS_SCHEDULE_URL; }
     }
     log(why + ' — opening URL:', url);
     ws.send(JSON.stringify({ event: 'openUrl', payload: { url } }));
@@ -865,7 +871,7 @@ async function resolveAflStreamUrl(game) {
     return url;
 }
 
-// ── Winter league per-game streams (LMP / LIDOM on MLB.TV) ────────────────────
+// ── Winter league per-game streams (LMP / LIDOM / ABL on MLB.TV) ────────────────────
 // Each stream is an MLB.TV video, /tv/shows/p/mlbtv-featured-svod-video-list/s/<slug>
 // (e.g. lmp-live-charros-vs-jaguares-250900). The slug's number is a CMS id and the
 // names aren't consistent, but MLB's CMS feed behind that list tags every video with
@@ -891,6 +897,70 @@ async function resolveWinterStreamUrl(game) {
     return url;
 }
 
+// ── ABL on Baseball+ (the league's own streaming site) ───────────────────────
+// Baseball+ (plus.baseball.com.au) carries every ABL game, some free, the rest on an
+// ABL or team pass. Its schedule page reads a public JSON API that lists each game a
+// week or more ahead: home and away team names, start time (UTC), and the stream's id
+// and slug, which make the watch page /en-int/livestream/<slug>/<id>. Nothing in it
+// ties a game to MLB's gamePk, and the slugs and titles are hand-typed (typos, stray
+// "-vs"), so we match on both team names plus the closest start time, and always take
+// the slug and id from the API. A rainout's makeup comes back as a new event with a
+// new stream. Fetched only on a Baseball+ press for a game that has started. Hits are
+// cached per game; misses are retried after 2 minutes; any failure → the schedule page.
+const ABL_LEAGUE_ID      = 595;
+const BPLUS_SCHEDULE_URL = 'https://plus.baseball.com.au/en-int/page/schedule';
+const BPLUS_API          = 'https://plus.baseball.com.au/api/v3/modules/139086/contents';
+const BPLUS_MATCH_MS     = 6 * 60 * 60 * 1000;   // start times within 6 h (rain delays)
+const bplusStreamCache   = new Map();   // gamePk -> { url, at } (url null = miss)
+
+// "ADELAIDE GIANTS" / "Adelaide Giants" / "Giants" → comparable word lists
+const bplusWords = name => String(name || '').toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter(Boolean);
+// The MLB name may be the full name or just the nickname: every MLB word must appear in the Baseball+ name
+const bplusSameTeam = (bpName, mlbName) => {
+    const bp = bplusWords(bpName), mlb = bplusWords(mlbName);
+    return mlb.length > 0 && mlb.every(w => bp.includes(w));
+};
+const bplusIso = ms => new Date(ms).toISOString().replace(/\.\d{3}Z$/, '+00:00');
+
+// Pure matcher (kept separate so the harness can feed it saved API responses)
+function pickBplusStream(events, game) {
+    const start = Date.parse(game.startUtc || game.startISO || '');
+    if (isNaN(start)) return null;
+    let best = null;
+    for (const e of events || []) {
+        if (!bplusSameTeam(e?.homeCompetitor?.name, game.homeName) || !bplusSameTeam(e?.awayCompetitor?.name, game.awayName)) continue;
+        const diff = Math.abs(Date.parse(e.startTime) - start);
+        if (!(diff <= BPLUS_MATCH_MS)) continue;
+        const contents = e.contents || [];
+        const c = contents.find(x => x?.distributionType?.name === 'Live') || contents[0];
+        const slug = c?.editorial?.translations?.en?.slug;
+        if (!c || !c.id || !slug || !/^[a-z0-9-]+$/.test(slug)) continue;
+        // A live stream's page is /livestream/; once Baseball+ swaps it for the replay, /video/
+        const kind = c?.distributionType?.name === 'VOD' ? 'video' : 'livestream';
+        if (!best || diff < best.diff) best = { diff, url: 'https://plus.baseball.com.au/en-int/' + kind + '/' + slug + '/' + c.id };
+    }
+    return best ? best.url : null;
+}
+
+async function resolveBplusStreamUrl(game) {
+    if (!game.gamePk) return null;
+    const hit = bplusStreamCache.get(game.gamePk);
+    if (hit && (hit.url || Date.now() - hit.at < AFL_MISS_RETRY_MS)) return hit.url;
+    let url = null;
+    const start = Date.parse(game.startUtc || game.startISO || '');
+    if (!isNaN(start)) {
+        const q = '?filter%5BdeviceCategory%5D=1'
+                + '&filter%5BdateTimeFrom%5D=' + encodeURIComponent(bplusIso(start - BPLUS_MATCH_MS))
+                + '&filter%5BdateTimeTo%5D='   + encodeURIComponent(bplusIso(start + BPLUS_MATCH_MS))
+                + '&limit=50&page=1';
+        const body = await httpGetText(BPLUS_API + q);
+        if (body) url = pickBplusStream(JSON.parse(body).data, game);
+        if (!url) log('Baseball+: no stream matched', game.matchup, game.startUtc);
+    }
+    bplusStreamCache.set(game.gamePk, { url, at: Date.now() });
+    return url;
+}
+
 // ── MLB Stats API ─────────────────────────────────────────────────────────────
 // 11–14 Triple-A … Single-A, 16 Rookie (ACL / FCL / DSL), 17 fall & winter leagues,
 // 22 summer leagues (MLB Draft League, Cape Cod, Appalachian — sport 22 is "College",
@@ -900,18 +970,19 @@ const AFL_LEAGUE_ID = 119;
 // Caribbean / Mexican winter leagues, also in sport 17 (added 1.0.37.0):
 // 131 Dominican (LIDOM), 132 Mexican Pacific (LMP), 135 Venezuela (LVBP).
 // MLB.com Gameday covers their games (/gameday/<gamePk> redirects to the full page);
-// LMP and LIDOM stream on MLB.TV as featured videos (see WINTER_STREAMS_URL). No MiLB.com pages, no parent orgs.
+// LMP, LIDOM and the ABL stream on MLB.TV as featured videos (see WINTER_STREAMS_URL). No MiLB.com pages, no parent orgs.
 // Leagues linked through MLB.com Gameday (/gameday/<gamePk>) instead of MiLB.com's
 // slug pages: the winter leagues, the Caribbean Series (162), Rookie ball (121 ACL,
 // 124 FCL, 130 DSL — no MiLB.com club pages for the postponed-game fallback) and the
 // summer leagues (5536 MLB Draft League, 565 Cape Cod, 120 Appalachian), added 1.0.39.0.
-// 133 Puerto Rico and 595 Australia added in 2.0 (no stream link yet: Gameday and Custom Link only).
+// 133 Puerto Rico and 595 Australia added in 2.0. Australia streams on MLB.TV (featured videos, like LMP and
+// LIDOM) and on the league's own Baseball+ site (see resolveBplusStreamUrl); Puerto Rico has no stream link.
 const WINTER_LEAGUE_IDS = [131, 132, 135, 133, 595, 162, 121, 124, 130, 5536, 565, 120];
 // isWinter holds the league id (truthy) so links can tell the leagues apart
 const isWinterLeague = id => WINTER_LEAGUE_IDS.includes(id) ? id : false;
 // Leagues with no stream we can open — the stream option opens Gameday instead:
-// Venezuela, Puerto Rico and Australia (no stream link yet), the Caribbean Series (MLB Network TV), Rookie ball and the summer leagues
-const NO_STREAM_LEAGUE_IDS = [135, 133, 595, 162, 121, 124, 130, 5536, 565, 120];
+// Venezuela and Puerto Rico (no stream link), the Caribbean Series (MLB Network TV), Rookie ball and the summer leagues
+const NO_STREAM_LEAGUE_IDS = [135, 133, 162, 121, 124, 130, 5536, 565, 120];
 const WINTER_STREAMS_URL = 'https://www.mlb.com/tv/shows/mlbtv-featured-svod-video-list';
 const AFL_SCHEDULE_URL = 'https://www.mlb.com/arizona-fall-league/schedule';
 // AFL games stream free on MLB.com, not MiLB.tv. Each stream is a CMS video
@@ -1295,6 +1366,8 @@ function parseScheduleCore(data, mlb) {
                 gamePk:       og.gamePk,
                 gameDate:     officialDate,
                 startUtc:     og.gameDate || null,
+                homeName:     ogHome.name,
+                awayName:     ogAway.name,
                 homeSlug:     ogHome.slug,
                 awaySlug:     ogAway.slug,
                 homeClubSlug:  ogHome.clubSlug,
@@ -1844,7 +1917,7 @@ function boardCfg(settings) {
     }
     s.sortOrder  = s.sortOrder === 'row' ? 'row' : 'column';
     s.finalsLast = !!s.finalsLast;
-    s.linkType   = s.linkType === 'tv' ? 'tv' : 'gameday';
+    s.linkType   = s.linkType === 'tv' || s.linkType === 'bplus' ? s.linkType : 'gameday';
     s.bgColor    = /^#[0-9a-fA-F]{6}$/.test(String(s.bgColor || '')) ? s.bgColor : null;
     s.bgOpacity  = s.bgOpacity != null && !isNaN(Number(s.bgOpacity)) ? Number(s.bgOpacity) : 100;
     return s;
@@ -1982,7 +2055,7 @@ function handleBoardEvent({ event, context, payload, device }) {
                 // Stream option: only while the game is on (and for 30 min after the final)
                 const mem = boardMemory.get(context);
                 let link = st.linkType;
-                if (link === 'tv' && game.state === 'final' && !(mem && mem.finalAt && Date.now() - mem.finalAt < 30 * 60 * 1000)) link = 'gameday';
+                if ((link === 'tv' || link === 'bplus') && game.state === 'final' && !(mem && mem.finalAt && Date.now() - mem.finalAt < 30 * 60 * 1000)) link = 'gameday';
                 openGameUrl(game, link, { teamId: game.homeId, customUrl: '' }, 'Scoreboard keyUp');
                 break;
             }

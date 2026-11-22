@@ -3,6 +3,7 @@
 Full version history for Live MLB Scores, newest first. The [README](README.md) lists the three most recent updates.
 
 **v2.0.1.0**
+- Australian Baseball League streams: the stream option now opens the game on MLB.TV, and ABL keys get a second choice, **Baseball+**, the league's own streaming site (some games are free, the rest need an ABL or team pass). Both open that game's own stream page once it starts
 - Offseason: when your team has nothing scheduled in the next two weeks, its key shows the team over "Offseason" instead of "No Game". A press still opens the team's schedule
 - Scoreboard: on a day with no games, the board now looks up to two weeks ahead for the next game day (was one week). With nothing in that window, the first Scoreboard key shows the league over "Offseason" and the rest go blank; a press still opens the league's scores page
 - Spring training: upcoming spring training and exhibition games get a green ST day line ("ST Thu 2/26", or "ST Today" on game day)

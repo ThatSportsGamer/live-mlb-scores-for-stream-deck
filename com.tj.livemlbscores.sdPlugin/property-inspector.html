@@ -335,6 +335,7 @@
     <select id="linkType">
         <option value="gameday">MiLB Gameday (free)</option>
         <option value="tv">MiLB.TV (subscription)</option>
+        <option value="bplus" hidden>Baseball+ (ABL's own stream)</option>
         <option value="custom">Custom Link</option>
     </select>
     <div id="streamHint" style="display:none;font-size:11px;color:#888;line-height:1.5;margin-top:6px;"></div>
@@ -416,10 +417,11 @@
     //  MLB.com Gameday instead of MiLB.com for everything outside the four full-season levels
     var MLBCOM_LEAGUES = { 131: 1, 132: 1, 135: 1, 133: 1, 595: 1, 162: 1, 121: 1, 124: 1, 130: 1, 5536: 1, 565: 1, 120: 1 };
     //  no stream we can open — the stream option is greyed out with this note (Custom Link still works)
+    var ABL_LEAGUE_ID = 595;
+    var ABL_STREAM_NOTE = "MLB.TV and Baseball+ both carry ABL games. Baseball+ needs an ABL or team pass, except for its free games.";
     var NO_STREAM_LEAGUES = {
         135: "No stream link for this league. Use Custom Link for its own stream.",
         133: "No stream link for this league. Use Custom Link for its own stream.",
-        595: "No stream link for this league. Use Custom Link for its own stream.",
         162: "No stream link for this league. Use Custom Link for its own stream.",
         121: "No stream link for this league. Use Custom Link for its own stream.",
         124: "No stream link for this league. Use Custom Link for its own stream.",
@@ -911,8 +913,15 @@
                           : isAFL ? 'AFL Live Stream (free on MLB.com)' : isMlbCom ? 'MLB.TV (subscription)' : 'MiLB.TV (subscription)';
         tvOpt.disabled = noStream;
         if (noStream && document.getElementById('linkType').value === 'tv') document.getElementById('linkType').value = 'gameday';
-        hint.textContent = noStream ? NO_STREAM_LEAGUES[lid] : '';
-        hint.style.display = noStream ? 'block' : 'none';
+        // ABL only: a second stream option, the league's own Baseball+ site
+        var isABL  = lid === ABL_LEAGUE_ID;
+        var bpOpt  = document.querySelector('#linkType option[value="bplus"]');
+        bpOpt.hidden = !isABL;
+        bpOpt.disabled = !isABL;
+        if (!isABL && document.getElementById('linkType').value === 'bplus') document.getElementById('linkType').value = 'gameday';
+        var note = noStream ? NO_STREAM_LEAGUES[lid] : isABL ? ABL_STREAM_NOTE : '';
+        hint.textContent = note;
+        hint.style.display = note ? 'block' : 'none';
     }
 
     function saveSettings() {
