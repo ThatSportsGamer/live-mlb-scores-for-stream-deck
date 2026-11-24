@@ -2,6 +2,9 @@
 
 Full version history for Live MLB Scores, newest first. The [README](README.md) lists the three most recent updates.
 
+**v2.0.2.0**
+- Australian Baseball League team logos: when an ABL team scores, its key blinks the club's logo three times and holds it for two seconds, then shows the runs card. Works on team keys and Scoreboard keys for the Adelaide Giants, Brisbane Bandits, Perth Heat and Sydney Blue Sox. Logos are used with the league's permission
+
 **v2.0.1.0**
 - Australian Baseball League streams: the stream option now opens the game on MLB.TV, and ABL keys get a second choice, **Baseball+**, the league's own streaming site (some games are free, the rest need an ABL or team pass). Both open that game's own stream page once it starts
 - Offseason: when your team has nothing scheduled in the next two weeks, its key shows the team over "Offseason" instead of "No Game". A press still opens the team's schedule

@@ -486,12 +486,13 @@ async function refreshKey(context) {
                     const card = (awayScored && homeScored) ? null
                         : awayScored ? runsCardLines(game.awayAbbr, game.awayRuns - prev.awayRuns)
                                      : runsCardLines(game.homeAbbr, game.homeRuns - prev.homeRuns);
-                    log('Score change — flashing', color);
+                    const logo = (awayScored && homeScored) ? null : teamLogo(awayScored ? game.awayId : game.homeId);
+                    log('Score change — flashing', logo ? 'logo' : color);
                     dhViewOther.delete(context);
                     clearTimeout(dhRevertTimers.get(context));
                     dhRevertTimers.delete(context);
                     refreshing.delete(context);
-                    flashKey(context, color, lines, spacing, resolveBgColor(cfg), card).catch(e => log('flashKey error:', e.message));
+                    flashKey(context, color, lines, spacing, resolveBgColor(cfg), card, logo).catch(e => log('flashKey error:', e.message));
                     return;
                 }
             }
@@ -1851,19 +1852,50 @@ function runsCardLines(abbr, runs) {
     return [{ text: abbr, fs: tfs }, { text: r, fs: rfs, color: '#FFD700' }];
 }
 
+// ── Team logo flash ─────────────────────────────────────────────────────────────
+// Clubs whose logo we have permission to use flash their logo instead of a solid
+// color when they score. ABL (league 595), permission from the league 2026-11-24;
+// art is each club's X profile picture, 144 x 144 PNG in imgs/logos/<teamId>.png.
+const LOGO_FLASH_TEAMS = new Set([
+    4064, // ADE Adelaide Giants
+    4065, // BRI Brisbane Bandits
+    4068, // PER Perth Heat
+    4069, // SYD Sydney Blue Sox
+]);
+const LOGO_HOLD_MS = 2000;
+const logoCache = new Map(); // teamId -> data URI (null if the file is missing)
+
+function teamLogo(teamId) {
+    if (!LOGO_FLASH_TEAMS.has(teamId)) return null;
+    if (!logoCache.has(teamId)) {
+        let uri = null;
+        try { uri = 'data:image/png;base64,' + fs.readFileSync(path.join(__dirname, 'imgs', 'logos', teamId + '.png')).toString('base64'); }
+        catch (e) { log('Logo missing for team', teamId, e.message); }
+        logoCache.set(teamId, uri);
+    }
+    return logoCache.get(teamId);
+}
+
 // Score flash: 5 solid blinks of the color with no text (2.0 s), then the
 // runs card for 3 s if there is one, then back to the score.
-async function flashKey(context, color, lines, spacing, restColor = 'black', card = null) {
+// With a logo (see teamLogo): 3 blinks of the logo (1.2 s), the logo holds
+// for 2 s, then the runs card.
+async function flashKey(context, color, lines, spacing, restColor = 'black', card = null, logo = null) {
     if (flashing.has(context)) return;
     flashing.add(context);
-    log('→ flash', color, card ? JSON.stringify(card) : '');
+    log('→ flash', logo ? 'logo' : color, card ? JSON.stringify(card) : '');
+    const showLogo = () => ws.send(JSON.stringify({ event: 'setImage', context, payload: { image: logo, target: 0 } }));
     try {
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < (logo ? 3 : 5); i++) {
             if (!keyAlive(context)) return; // key was removed mid-flash
-            setKey(context, [''], spacing, color, true);
+            if (logo) showLogo(); else setKey(context, [''], spacing, color, true);
             await sleep(200);
             setKey(context, [''], spacing, restColor, true);
             await sleep(200);
+        }
+        if (logo && keyAlive(context)) {
+            showLogo();
+            await sleep(LOGO_HOLD_MS);
         }
         if (card && keyAlive(context)) {
             setKey(context, card, 1.3, 'black', true);
@@ -2241,8 +2273,9 @@ function renderBoardKey(context, game, st) {
             const card = (awayScored && homeScored) ? null
                 : awayScored ? runsCardLines(game.awayAbbr, game.awayRuns - prev.awayRuns)
                              : runsCardLines(game.homeAbbr, game.homeRuns - prev.homeRuns);
-            log('Scoreboard — score change ' + game.matchup + ', flashing', color);
-            flashKey(context, color, lines, spacing, bg, card).catch(e => log('flash error:', e.message));
+            const logo = (awayScored && homeScored) ? null : teamLogo(awayScored ? game.awayId : game.homeId);
+            log('Scoreboard — score change ' + game.matchup + ', flashing', logo ? 'logo' : color);
+            flashKey(context, color, lines, spacing, bg, card, logo).catch(e => log('flash error:', e.message));
             return;
         }
     }

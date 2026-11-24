@@ -4,7 +4,7 @@
 
 From Rookie ball to the majors, plus the summer, fall, and winter leagues, keep tabs on your favorite baseball teams right on your Stream Deck. Put a team on a key, or build out a whole scoreboard across your keys. Everything updates automatically.
 
-![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-2.0.1.0-green) [![Elgato Marketplace](https://img.shields.io/badge/Elgato-Marketplace-black)](https://marketplace.elgato.com/product/live-mlb-scores-fbafac13-4e61-4452-b677-5e60fea52639)
+![Live MLB Scores Plugin](https://img.shields.io/badge/Stream%20Deck-Plugin-blue) ![Version](https://img.shields.io/badge/version-2.0.2.0-green) [![Elgato Marketplace](https://img.shields.io/badge/Elgato-Marketplace-black)](https://marketplace.elgato.com/product/live-mlb-scores-fbafac13-4e61-4452-b677-5e60fea52639)
 
 > **2.0 is in pre-release.** The Elgato Marketplace still has version 1.0.33 until 2.0 is approved. Want to try 2.0 now? Grab **`Live MLB Scores.streamDeckPlugin`** from the [Releases](../../releases) page. Your existing Live MLB Scores keys keep their team and settings when you upgrade.
 
@@ -35,7 +35,7 @@ Live MLB Scores 2.0 combines and expands upon **Live MLB Scores**, **Live MiLB S
 - **Before the game.** The two teams stacked (`ATL` over `@ NYM`) with the start time.
 - **Off days.** No dead-end "No Game" here. The key shows your team's next game with its day and time. If there's nothing in the next two weeks, the key shows your team over "Offseason", and a press opens its schedule.
 - **Final scores.** The final with a "Final" label, plus fireworks across the key in the winner's color. Minor-league teams use their MLB parent club's color, and any team without a color on file gets gold.
-- **Run flash.** The key blinks in the scoring team's color, then shows who scored.
+- **Run flash.** The key blinks in the scoring team's color, then shows who scored. Australian Baseball League clubs flash their logo instead.
 - **Press to watch or follow.** Press a key to open the game on Gameday, in a stream where one's available, or on any link you like (your regional sports network, for example).
 - **Doubleheaders.** You'll see the first game, then the second. Double-click the key to peek at the other game.
 - **Spring training.** Upcoming spring training and exhibition games get a green `ST` day line (`ST Thu 2/26`, `ST Today`).
@@ -56,6 +56,10 @@ Live MLB Scores 2.0 combines and expands upon **Live MLB Scores**, **Live MiLB S
 When a team scores, the key blinks in their color, then a card shows who scored and how many runs before the score comes back.
 
 <p align="center"><img src="assets/run_flash.gif" alt="A key blinking red, then showing ATL +2 RUNS" width="280"></p>
+
+Australian Baseball League clubs flash their logo instead: three quick blinks, then the logo holds for two seconds before the runs card.
+
+<p align="center"><img src="assets/abl_logo_flash.gif" alt="Four keys flashing the Adelaide Giants, Brisbane Bandits, Perth Heat and Sydney Blue Sox logos, then showing the runs card" width="420"></p>
 
 When the last out is made, the winner gets fireworks. Here's a replay of the last half inning of the 2026 World Series: Brewers 4, Rays 1.
 
@@ -120,6 +124,9 @@ A few handy options:
 
 ## Recent Updates
 
+**v2.0.2.0**
+- Australian Baseball League team logos: when an ABL team scores, its key blinks the club's logo three times and holds it for two seconds, then shows the runs card. Works on team keys and Scoreboard keys for the Adelaide Giants, Brisbane Bandits, Perth Heat and Sydney Blue Sox. Logos are used with the league's permission
+
 **v2.0.1.0**
 - Australian Baseball League streams: the stream option now opens the game on MLB.TV, and ABL keys get a second choice, **Baseball+**, the league's own streaming site (some games are free, the rest need an ABL or team pass). Both open that game's own stream page once it starts
 - Offseason: when your team has nothing scheduled in the next two weeks, its key shows the team over "Offseason" instead of "No Game". A press still opens the team's schedule
@@ -130,12 +137,6 @@ A few handy options:
 
 **v2.0.0.1**
 - Australian Baseball League keys now follow Sydney time. The day turns over at 5:00 AM in Sydney (about 1:00 PM Eastern), so the morning's finals stay up through the US morning, then the keys show that night's games with their start times instead of waiting until they go live. Every other league still rolls over at 5:00 AM Eastern
-
-**v2.0.0.0**
-- Live MLB Scores, Live MiLB Scores and Live MLB Scoreboard are now one plugin (see What's New in 2.0 above)
-- New leagues: Rookie ball (ACL, FCL, DSL), the Arizona Fall League, the Australian Baseball League, the Caribbean winter leagues (LIDOM, LMP, LBPRC, LVBP), the Caribbean Series, and the MLB Draft, Cape Cod and Appalachian leagues
-- New **Live MLB Scoreboard** action: fill a group of keys with a whole day's games for any league
-- Existing Live MLB Scores keys keep their team and settings when you upgrade
 
 Older updates: see the full version history in [CHANGELOG.md](CHANGELOG.md).
 
@@ -268,3 +269,5 @@ Created by **T.J. Lauerman aka ThatSportsGamer**
 Created with Claude Cowork by Anthropic
 
 Data provided by the [MLB Stats API](https://statsapi.mlb.com)
+
+Australian Baseball League club logos are used with the permission of the Australian Baseball League
