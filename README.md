@@ -258,7 +258,7 @@ Found a bug or have an idea? Open an [Issue](../../issues). I'd love to hear fro
 
 ## Disclaimer
 
-This plugin is not affiliated with, endorsed by, or sponsored by Major League Baseball, Minor League Baseball, MLB Advanced Media, L.P., or any of the other leagues it shows. All data is sourced from the MLB Stats API and is subject to MLBAM's terms of use. This plugin is intended for individual, personal, non-commercial use only.
+This plugin is not affiliated with, endorsed by, or sponsored by Major League Baseball, Minor League Baseball, MLB Advanced Media, L.P., or any of the other leagues it shows. Australian Baseball League (ABL) team logos are used with the permission of the ABL. All data is sourced from the MLB Stats API and is subject to MLBAM's terms of use. This plugin is intended for individual, personal, non-commercial use only.
 
 ---
 
